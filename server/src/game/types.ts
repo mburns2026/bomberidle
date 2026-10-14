@@ -1,4 +1,4 @@
-export type Rarity = "common" | "rare" | "epic" | "legendary";
+export type Rarity = "common" | "rare" | "epic" | "mythic" | "legendary" | "supreme";
 
 export interface Hero {
   id: string;

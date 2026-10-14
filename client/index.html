@@ -4,62 +4,184 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Bomber Idle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
     <style>
-      :root { color-scheme: dark; --bg:#16280f; --wood:#3a2512; --wood2:#5a3a1c; --gold:#e0a82e; --ink:#2a1a0c; --text:#f6ecc9; --muted:#b7c297; }
+      :root {
+        color-scheme: dark;
+        --bg: #07040f; --panel: #0e0a22; --panel2: #15103a; --line: #2a2060;
+        --cyan: #2de2e6; --magenta: #ff3d8b; --violet: #b45cff; --amber: #ffb020;
+        --text: #e8e4ff; --muted: #8f86c4;
+        --display: Orbitron, "Segoe UI", system-ui, sans-serif;
+        --body: Rajdhani, "Segoe UI", system-ui, sans-serif;
+      }
       * { box-sizing: border-box; }
-      body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
-      header { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 10px 16px; background: linear-gradient(var(--wood2), var(--wood)); border-bottom: 4px solid var(--gold); box-shadow: 0 4px 0 #0008; }
-      .title { font-size: 1.25rem; font-weight: 800; margin-right: auto; letter-spacing: .5px; }
-      .stat { display: flex; align-items: center; gap: 8px; background: var(--ink); border: 2px solid var(--gold); border-radius: 8px; padding: 4px 12px; font-variant-numeric: tabular-nums; }
-      .stat b { color: #ffe27a; font-size: 1.05rem; min-width: 3ch; text-align: right; }
+      [hidden] { display: none !important; }
+      body {
+        margin: 0; color: var(--text); font-family: var(--body); font-size: 16px;
+        background:
+          radial-gradient(900px 500px at 12% -10%, #2b0f5a55, transparent 60%),
+          radial-gradient(900px 500px at 100% 110%, #00e5ff22, transparent 60%),
+          var(--bg);
+        min-height: 100vh;
+      }
+      header {
+        display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; padding: 10px 18px;
+        background: linear-gradient(#120b30, #0a0620);
+        border-bottom: 2px solid transparent;
+        border-image: linear-gradient(90deg, var(--cyan), var(--violet), var(--magenta)) 1;
+        box-shadow: 0 6px 28px #b45cff33;
+      }
+      .title {
+        margin-right: auto; font-family: var(--display); font-weight: 900; font-size: 1.45rem; letter-spacing: 3px;
+        text-transform: uppercase; position: relative;
+        background: linear-gradient(90deg, var(--cyan), var(--violet) 55%, var(--magenta));
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        filter: drop-shadow(0 0 8px #b45cff88);
+        animation: glitch 6s infinite steps(1);
+      }
+      .title .ver {
+        font-size: .65rem; letter-spacing: 1px; color: var(--cyan); -webkit-text-fill-color: var(--cyan);
+        border: 1px solid var(--cyan); border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: middle;
+      }
+      @keyframes glitch {
+        0%, 94%, 100% { transform: none; }
+        95% { transform: translate(2px, 0) skewX(-6deg); }
+        97% { transform: translate(-2px, 0) skewX(5deg); }
+      }
+      .stat {
+        display: flex; align-items: center; gap: 8px; background: #0a0720; border: 1px solid var(--cyan); border-radius: 6px;
+        padding: 4px 12px; font-variant-numeric: tabular-nums; box-shadow: 0 0 10px #2de2e633, inset 0 0 10px #2de2e61a;
+      }
+      .stat b { font-family: var(--display); color: #c9fbff; font-size: .95rem; min-width: 3ch; text-align: right; }
       .stat svg { width: 22px; height: 22px; flex: none; }
-      button { background: linear-gradient(#f5a62b, #d9781a); color: #2a1503; border: 2px solid #7a3d0c; border-radius: 8px; padding: 7px 14px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 0 #7a3d0c; }
-      button:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #7a3d0c; }
-      button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
-      button:disabled { opacity: .55; cursor: not-allowed; }
-      button.ghost { background: transparent; color: var(--text); border: 2px solid var(--gold); box-shadow: none; width: 100%; margin-top: 12px; }
-      main { display: flex; flex-wrap: wrap; gap: 14px; padding: 14px; align-items: flex-start; justify-content: center; }
-      #game { flex: none; width: min(100%, calc((100vh - 110px) * 31 / 19)); aspect-ratio: 31 / 19; border: 4px solid var(--wood); border-radius: 8px; box-shadow: 0 0 0 3px var(--gold), 0 8px 24px #0009; overflow: hidden; background: #1d3a17; }
-      #game canvas { image-rendering: pixelated; }
-      aside { flex: 1 1 250px; max-width: 320px; background: var(--ink); border: 3px solid var(--gold); border-radius: 10px; padding: 14px; }
-      aside h2 { margin: 0 0 12px; font-size: 1.05rem; }
-      ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-      li { background: #3a2512; border: 2px solid #5a3a1c; border-radius: 8px; padding: 8px 10px; }
-      .hero-top { display: flex; gap: 8px; align-items: center; }
-      .hero-top .muted { margin-left: auto; }
-      .dot { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--ink); display: inline-block; }
-      .bar { height: 8px; background: #0e1709; border: 1px solid #000; border-radius: 4px; margin: 6px 0 4px; overflow: hidden; }
-      .bar div { height: 100%; transition: width .3s; }
+      button { font-family: var(--body); }
+      .btn {
+        background: linear-gradient(90deg, var(--magenta), var(--violet)); color: #fff; border: 0; border-radius: 6px;
+        padding: 8px 16px; font-weight: 700; font-size: 1rem; letter-spacing: .5px; text-transform: uppercase; cursor: pointer;
+        box-shadow: 0 0 14px #ff3d8b66; clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+      }
+      .btn.alt { background: linear-gradient(90deg, #0fb8c4, var(--cyan)); color: #04121a; box-shadow: 0 0 14px #2de2e666; }
+      .btn:hover:not(:disabled) { filter: brightness(1.15); }
+      .btn:active:not(:disabled) { transform: translateY(1px); }
+      .btn:focus-visible, .hero:focus-visible, .close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+      .btn:disabled { opacity: .4; cursor: not-allowed; filter: grayscale(.6); }
+      .btn.ghost {
+        background: transparent; color: var(--cyan); border: 1px solid var(--cyan); width: 100%; margin-top: 14px;
+        box-shadow: none; clip-path: none;
+      }
+      main { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; align-items: flex-start; justify-content: center; }
+      #game {
+        flex: none; width: min(100%, calc((100vh - 110px) * 31 / 19)); aspect-ratio: 31 / 19;
+        border: 2px solid var(--cyan); border-radius: 10px; overflow: hidden; background: #07040f;
+        box-shadow: 0 0 0 1px #07040f, 0 0 0 3px #b45cff88, 0 0 30px #2de2e655, 0 0 60px #ff3d8b33;
+      }
+      aside {
+        flex: 1 1 280px; max-width: 340px; background: linear-gradient(#120d30, var(--panel)); border: 1px solid var(--line);
+        border-radius: 12px; padding: 14px; box-shadow: 0 0 24px #b45cff22;
+      }
+      aside h2 {
+        margin: 0 0 12px; font-family: var(--display); font-size: .95rem; letter-spacing: 3px; text-transform: uppercase;
+        color: var(--cyan); display: flex; justify-content: space-between; align-items: baseline;
+      }
+      aside h2 small { color: var(--muted); font-family: var(--body); letter-spacing: 1px; font-size: .8rem; }
+      ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+      .hero {
+        --rc: #8fa6c4; width: 100%; display: flex; gap: 10px; align-items: center; text-align: left; cursor: pointer; color: inherit;
+        background: linear-gradient(90deg, #1a1342, #110c2c); border: 1px solid color-mix(in srgb, var(--rc) 55%, transparent);
+        border-left: 4px solid var(--rc); border-radius: 8px; padding: 8px 10px;
+        box-shadow: 0 0 12px color-mix(in srgb, var(--rc) 22%, transparent);
+        transition: transform .15s, box-shadow .15s;
+      }
+      .hero:hover { transform: translateX(3px); box-shadow: 0 0 18px color-mix(in srgb, var(--rc) 50%, transparent); }
+      .face {
+        width: 52px; height: 52px; flex: none; border-radius: 50%; object-fit: cover; border: 2px solid var(--rc);
+        box-shadow: 0 0 12px var(--rc); background: #07040f;
+      }
+      .info { flex: 1; min-width: 0; }
+      .line1 { display: flex; gap: 8px; align-items: center; }
+      .line1 strong { font-family: var(--display); font-size: .92rem; letter-spacing: 1px; }
+      .badge {
+        margin-left: auto; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #07040f;
+        background: var(--rc); border-radius: 4px; padding: 1px 6px; white-space: nowrap;
+      }
+      .sub { color: var(--muted); font-size: .82rem; }
+      .bar { height: 6px; background: #05030c; border: 1px solid #000; border-radius: 3px; margin: 5px 0 3px; overflow: hidden; }
+      .bar div { height: 100%; background: var(--rc); box-shadow: 0 0 8px var(--rc); transition: width .3s; }
       .muted { color: var(--muted); } .small { font-size: .8rem; }
-      .note { margin: 12px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.4; }
-      #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); border: 2px solid var(--gold); padding: 10px 16px; border-radius: 8px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+      .hero.r-supreme {
+        border: 2px solid transparent; border-left-width: 4px;
+        background: linear-gradient(#1a1342, #110c2c) padding-box, linear-gradient(90deg, #fff0a8, #ffb020, #ffffff, #ffb020, #fff0a8) border-box;
+        background-size: 100% 100%, 300% 100%; animation: shimmer 4s linear infinite;
+      }
+      @keyframes shimmer { to { background-position: 0 0, -300% 0; } }
+      .legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+      .legend span {
+        --rc: #8fa6c4; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--rc);
+        border: 1px solid var(--rc); border-radius: 4px; padding: 1px 7px; box-shadow: 0 0 8px color-mix(in srgb, var(--rc) 30%, transparent);
+      }
+      .note { margin: 14px 0 0; color: var(--muted); font-size: .85rem; line-height: 1.4; }
+      #toast {
+        position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(20px); background: #0a0720;
+        border: 1px solid var(--cyan); box-shadow: 0 0 16px #2de2e655; padding: 10px 16px; border-radius: 8px;
+        opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 30;
+      }
       #toast.show { opacity: 1; transform: translateX(-50%); }
-      @media (prefers-reduced-motion: reduce) { .bar div, #toast { transition: none; } }
+      /* ficha do NFT */
+      #modal { position: fixed; inset: 0; background: #03010acc; backdrop-filter: blur(4px); display: grid; place-items: center; padding: 16px; z-index: 20; }
+      .sheet {
+        --rc: #8fa6c4; position: relative; display: flex; flex-wrap: wrap; gap: 18px; max-width: 760px; max-height: 92vh; overflow: auto;
+        background: linear-gradient(#150f38, #0b0722); border: 1px solid var(--rc); border-radius: 14px; padding: 18px;
+        box-shadow: 0 0 40px color-mix(in srgb, var(--rc) 45%, transparent);
+      }
+      .sheet img.card { width: 280px; max-width: 100%; height: auto; align-self: flex-start; border-radius: 12px; box-shadow: 0 0 24px color-mix(in srgb, var(--rc) 50%, transparent); }
+      .sheet .body { flex: 1 1 260px; min-width: 240px; }
+      .sheet h3 { margin: 0; font-family: var(--display); font-size: 1.5rem; letter-spacing: 2px; text-transform: uppercase; }
+      .sheet .badge { margin-left: 0; display: inline-block; margin: 8px 0; }
+      .sheet dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 10px 0; }
+      .sheet dt { color: var(--muted); text-transform: uppercase; font-size: .78rem; letter-spacing: 1px; align-self: center; }
+      .sheet dd { margin: 0; font-weight: 600; }
+      .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chips span { border: 1px solid var(--rc); border-radius: 4px; padding: 2px 8px; font-size: .85rem; background: #0a0720; }
+      .perk { margin: 12px 0; padding: 10px 12px; border-left: 3px solid var(--rc); background: #0a0720; border-radius: 4px; }
+      .perk b { color: var(--rc); font-family: var(--display); letter-spacing: 1px; font-size: .85rem; text-transform: uppercase; }
+      .lore { color: var(--muted); font-style: italic; line-height: 1.4; margin: 0; }
+      .close {
+        position: absolute; top: 8px; right: 10px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--rc);
+        background: #0a0720; color: var(--text); font-size: 1.2rem; cursor: pointer;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .title, .hero.r-supreme { animation: none; }
+        .bar div, #toast, .hero { transition: none; }
+      }
     </style>
   </head>
   <body>
     <header>
-      <span class="title">Bomber Idle <span class="muted small">v1.0.1</span></span>
+      <span class="title">Bomber Idle <span class="ver">v1.1.0</span></span>
       <span class="stat" title="Pontos pendentes (teste)">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#2a1a0c"/><circle cx="12" cy="12" r="9.5" fill="#f2b632"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#b47a10" stroke-width="2"/><path d="M8 7h3v2H8z" fill="#fff6c8"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5" fill="#0a0720" stroke="#2de2e6" stroke-width="1.5"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#ff3d8b" stroke-width="1.8"/><circle cx="12" cy="12" r="2.2" fill="#c9fbff"/></svg>
         <b id="pending">0.00</b>
       </span>
       <span class="stat" title="Baús abertos">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="15" rx="2" fill="#2a1a0c"/><rect x="3.5" y="7.5" width="17" height="12" fill="#9c6b3a"/><rect x="3.5" y="7.5" width="17" height="3" fill="#c4915a"/><rect x="10.5" y="11" width="3" height="5" fill="#ffd24a"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2" fill="#0a0720" stroke="#b45cff" stroke-width="1.6"/><path d="M3 12h18" stroke="#b45cff" stroke-width="1.6"/><rect x="10" y="10.5" width="4" height="5" fill="#2de2e6"/></svg>
         <b id="chests">0</b>
       </span>
-      <button id="connect">Conectar carteira</button>
-      <button id="claim" disabled>Sacar</button>
+      <button id="connect" class="btn alt">Conectar carteira</button>
+      <button id="claim" class="btn" disabled>Sacar</button>
     </header>
     <main>
       <div id="game"></div>
       <aside>
-        <h2>Heróis</h2>
+        <h2>Esquadrão <small id="count"></small></h2>
         <ul id="heroes"></ul>
-        <button id="refill" class="ghost">Recarregar stamina (teste)</button>
-        <p class="note">Os pontos são de teste e ficam salvos só neste navegador. O saque on-chain depende do servidor e do programa na devnet.</p>
+        <div class="legend" id="legend" aria-label="Raridades"></div>
+        <button id="refill" class="btn ghost">Recarregar stamina (teste)</button>
+        <p class="note">Toque em um herói para ver a ficha do NFT. Os pontos são de teste e ficam salvos só neste navegador. O saque on-chain depende do servidor e do programa na devnet.</p>
       </aside>
     </main>
+    <div id="modal" hidden role="dialog" aria-modal="true" aria-label="Ficha do NFT"></div>
     <div id="toast" role="status"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

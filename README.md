@@ -1,4 +1,4 @@
-# Bomber Idle (Solana) - v1.0.0
+# Bomber Idle (Solana) - v1.1.0
 
 Jogo idle/play-to-earn estilo grade com bombas, baus e herois NFT, na Solana.
 
@@ -14,7 +14,19 @@ docs/TOKENOMICS.md     Rascunho de economia
 ```
 
 ## Modo demo (cliente)
-O cliente roda sozinho: 4 herois (Comum a Lendario) exploram o mapa, plantam bombas, abrem baus de varias raridades e gastam stamina. Pontos ficam em `localStorage`. Toda a arte e gerada por codigo (sem assets de terceiros).
+O cliente roda sozinho: 6 herois NFT (um por raridade) exploram o mapa cyberpunk, plantam bombas, abrem baus de varias raridades e gastam stamina. Pontos ficam em `localStorage`. O cenario e gerado por codigo; os herois usam as imagens em `client/public/nft/`.
+
+### Herois e raridades
+| Heroi | Raridade | Habilidade |
+|-------|----------|------------|
+| Lyra - Bio-Mecanica | Comum | Reparo Rapido: stamina volta 2,5x mais rapido |
+| Jax - Street Samurai | Raro | Corte Duplo: 25% de recompensa em dobro |
+| Titan - Heavy Pilot | Epico | Carga Pesada: +1 de alcance nas bombas |
+| Vex - Neural Hacker | Mitico | Hack Neural: 35% de bomba sem gastar stamina |
+| Kira - Sleek Rogue | Lendario | Sombra Veloz: 20% de recompensa em dobro e 15% de bomba gratis |
+| Orion - Supreme Divinity | Super Lendario | Onipotencia: regen 2x, +1 alcance, 30% de recompensa em dobro, 20% de bomba gratis |
+
+Os dados dos herois ficam em `client/src/state.ts` (raridade, habilidade, historia). Para trocar a raridade de um heroi, altere o campo `rarity`.
 
 ## Fluxo de saque
 1. Servidor simula o farming off-chain e acumula `pending`.
