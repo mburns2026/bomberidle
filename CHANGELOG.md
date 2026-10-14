@@ -2,6 +2,13 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.0.1] - 2026-10-14
+### Alterado
+- Novo visual: sprites com contorno, luz e sombra; borda do mapa com arvores e cercas vivas.
+- Animacao de caminhada, explosoes com chamas e particulas, particulas ao abrir baus.
+- Interface com moldura de madeira e dourado, icones e mapa ajustado a altura da tela.
+- Arte continua 100% procedural e original (gerada por codigo), pronta para ser trocada por sprites reais.
+
 ## [1.0.0] - 2026-10-13
 Primeira versao estavel do cliente e **base de todas as proximas versoes**.
 

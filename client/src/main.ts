@@ -1,14 +1,14 @@
 import Phaser from "phaser";
-import { FarmScene, MAP_W, MAP_H } from "./scenes/FarmScene";
+import { FarmScene, GAME_W, GAME_H } from "./scenes/FarmScene";
 import { RARITIES, store, refillAll } from "./state";
 import { connect, requestClaim } from "./wallet";
 
 new Phaser.Game({
   type: Phaser.AUTO,
   parent: "game",
-  width: MAP_W,
-  height: MAP_H,
-  backgroundColor: "#14210f",
+  width: GAME_W,
+  height: GAME_H,
+  backgroundColor: "#1d3a17",
   pixelArt: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   scene: [FarmScene],

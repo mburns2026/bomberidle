@@ -1,11 +1,14 @@
 import Phaser from "phaser";
 import { RARITIES, Rarity, HeroData, store, addReward } from "../state";
+import { makeTextures } from "../art";
 
 const T = 32;
 const COLS = 29;
 const ROWS = 17;
 export const MAP_W = COLS * T;
 export const MAP_H = ROWS * T;
+export const GAME_W = MAP_W + 2 * T; // borda decorativa de 1 tile
+export const GAME_H = MAP_H + 2 * T;
 
 const DIRS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const key = (x: number, y: number) => `${x},${y}`;
@@ -39,10 +42,19 @@ export class FarmScene extends Phaser.Scene {
   constructor() { super("farm"); }
 
   create() {
-    this.makeTextures();
+    makeTextures(this);
+    this.cameras.main.setScroll(-T, -T);
     for (let y = 0; y < ROWS; y++)
       for (let x = 0; x < COLS; x++)
-        this.add.image(x * T + T / 2, y * T + T / 2, `grass${(x * 7 + y * 3) % 2}`).setDepth(0);
+        this.add.image(x * T + T / 2, y * T + T / 2, `grass${(x * 7 + y * 3) % 3}`).setDepth(0);
+
+    for (let y = -1; y <= ROWS; y++)
+      for (let x = -1; x <= COLS; x++) {
+        if (x >= 0 && x < COLS && y >= 0 && y < ROWS) continue;
+        const px = x * T + T / 2, py = y * T + T / 2;
+        this.add.image(px, py, "grass0").setDepth(0);
+        this.add.image(px, py, (x + y) % 2 === 0 ? "tree" : "hedge").setDepth(1);
+      }
 
     this.buildMap();
 
@@ -68,53 +80,8 @@ export class FarmScene extends Phaser.Scene {
       h.barFg.setPosition(x - 10, y - 19);
       h.barFg.width = Math.max(0, 20 * (h.data.stamina / h.data.maxStamina));
       h.zzz.setPosition(x + 6, y - 32).setVisible(h.sleeping);
+      h.sprite.setAlpha(h.sleeping ? 0.7 : 1);
     }
-  }
-
-  // ---------- arte procedural (original, sem assets externos) ----------
-  private makeTextures() {
-    const mk = (name: string, draw: (g: Phaser.GameObjects.Graphics) => void) => {
-      const g = this.make.graphics({ x: 0, y: 0 }, false);
-      draw(g);
-      g.generateTexture(name, T, T);
-      g.destroy();
-    };
-    mk("grass0", (g) => { g.fillStyle(0x4c8a2e).fillRect(0, 0, T, T); g.fillStyle(0x58983b).fillRect(4, 6, 3, 3).fillRect(21, 22, 3, 3); });
-    mk("grass1", (g) => { g.fillStyle(0x4a862c).fillRect(0, 0, T, T); g.fillStyle(0x58983b).fillRect(18, 8, 3, 3).fillRect(7, 24, 3, 3); });
-    mk("pillar", (g) => {
-      g.fillStyle(0x7a2418).fillRect(2, 14, 28, 16);
-      g.fillStyle(0xb03a2e).fillRect(2, 4, 28, 12);
-      g.fillStyle(0xd0584a).fillRect(6, 4, 4, 12).fillRect(14, 4, 4, 12).fillRect(22, 4, 4, 12);
-      g.fillStyle(0xf0d9a8).fillRect(12, 20, 8, 10);
-    });
-    mk("block", (g) => {
-      g.fillStyle(0xd9a066).fillRect(1, 1, 30, 30);
-      g.fillStyle(0xa8743c).fillRect(1, 10, 30, 2).fillRect(1, 21, 30, 2).fillRect(15, 1, 2, 9).fillRect(7, 12, 2, 9).fillRect(23, 12, 2, 9).fillRect(15, 23, 2, 8);
-    });
-    for (const r of RARITY_LIST) {
-      const c = RARITIES[r].color;
-      mk(`chest_${r}`, (g) => {
-        g.fillStyle(0x3a220e).fillRect(4, 9, 24, 19);
-        g.fillStyle(c).fillRect(6, 11, 20, 15);
-        g.fillStyle(0x000000, 0.22).fillRect(6, 18, 20, 8);
-        g.fillStyle(0x3a220e).fillRect(6, 16, 20, 2);
-        g.fillStyle(0xffd24a).fillRect(14, 15, 4, 6);
-      });
-      mk(`hero_${r}`, (g) => {
-        g.fillStyle(0x000000, 0.25).fillEllipse(16, 28, 18, 6);
-        g.fillStyle(c).fillRect(10, 15, 12, 11);
-        g.fillStyle(0xf1c9a0).fillRect(10, 6, 12, 10);
-        g.fillStyle(c).fillRect(9, 3, 14, 6);
-        g.fillStyle(0x222222).fillRect(13, 10, 2, 3).fillRect(18, 10, 2, 3);
-        g.fillStyle(0x333333).fillRect(10, 26, 4, 3).fillRect(18, 26, 4, 3);
-      });
-    }
-    mk("bomb", (g) => {
-      g.fillStyle(0x1a1a1a).fillCircle(16, 19, 9);
-      g.fillStyle(0x666666).fillCircle(13, 16, 2);
-      g.fillStyle(0x7a4a1c).fillRect(15, 6, 3, 5);
-      g.fillStyle(0xffd24a).fillRect(14, 3, 5, 4);
-    });
   }
 
   // ---------- mapa ----------
@@ -258,6 +225,7 @@ export class FarmScene extends Phaser.Scene {
       y: ny * T + T / 2,
       duration: (450 / h.data.speed) * 0.85,
     });
+    this.tweens.add({ targets: h.sprite, angle: 6, scaleY: 0.92, duration: (450 / h.data.speed) * 0.42, yoyo: true });
     const chest = this.chests.get(key(nx, ny));
     if (chest) this.openChest(h, nx, ny, chest);
   }
@@ -268,6 +236,7 @@ export class FarmScene extends Phaser.Scene {
     addReward(value);
     this.chests.delete(key(x, y));
     chest.sprite.destroy();
+    this.burst(x * T + T / 2, y * T + T / 2, 0xffe27a, 10);
     const txt = this.add.text(x * T + T / 2, y * T, `+${value}`, {
       fontFamily: "monospace", fontSize: "14px", color: "#ffe27a", stroke: "#000", strokeThickness: 3,
     }).setOrigin(0.5).setDepth(8);
@@ -284,6 +253,14 @@ export class FarmScene extends Phaser.Scene {
     this.time.delayedCall(1400, () => this.explode(bomb));
   }
 
+  private burst(x: number, y: number, tint: number, n: number) {
+    const p = this.add.particles(x, y, "spark", {
+      speed: { min: 40, max: 130 }, lifespan: 450, scale: { start: 1.2, end: 0 }, tint, quantity: n, emitting: false,
+    }).setDepth(6);
+    p.explode(n);
+    this.time.delayedCall(600, () => p.destroy());
+  }
+
   private rollRarity(): Rarity {
     const r = Math.random() * 100;
     return r < 70 ? "common" : r < 90 ? "rare" : r < 98 ? "epic" : "legendary";
@@ -298,14 +275,16 @@ export class FarmScene extends Phaser.Scene {
 
     for (const [x, y] of cells) {
       const cx = x * T + T / 2, cy = y * T + T / 2;
-      const flame = this.add.rectangle(cx, cy, T - 4, T - 4, 0xffa42b, 0.9).setDepth(5);
-      this.tweens.add({ targets: flame, alpha: 0, scale: 1.25, duration: 380, onComplete: () => flame.destroy() });
+      const flame = this.add.image(cx, cy, "flame").setDepth(5).setScale(0.6);
+      this.tweens.add({ targets: flame, scale: 1.5, alpha: 0, duration: 420, onComplete: () => flame.destroy() });
+      this.burst(cx, cy, 0xffc04a, 5);
 
       if (this.grid[y][x] === 2) {
         this.grid[y][x] = 0;
         this.blockSprites[y][x]?.destroy();
         this.blockSprites[y][x] = null;
         this.blocksLeft--;
+        this.burst(cx, cy, 0xd9a066, 8);
         if (Math.random() < 0.3) {
           const rarity = this.rollRarity();
           const sprite = this.add.image(cx, cy, `chest_${rarity}`).setDepth(2).setScale(0);
