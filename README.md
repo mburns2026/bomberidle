@@ -1,4 +1,4 @@
-# Bomber Idle (Solana) - v1.1.0
+# Bomber Idle (Solana) - v1.1.1
 
 Jogo idle/play-to-earn estilo grade com bombas, baus e herois NFT, na Solana.
 

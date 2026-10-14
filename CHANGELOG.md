@@ -2,6 +2,12 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.1.1] - 2026-10-14
+### Alterado
+- Herois agora tem corpo inteiro estilo Bomberman: cabeca grande com o rosto do NFT, tronco, bracos, pernas e botas na cor da raridade.
+- Animacao de caminhada (quadros de passo alternados) e sombra no chao; antena neon (aureola dourada no Super Lendario).
+- Herois mais abaixo no mapa aparecem na frente dos que estao acima.
+
 ## [1.1.0] - 2026-10-14
 ### Adicionado
 - 6 herois NFT (Lyra, Jax, Titan, Vex, Kira, Orion) com identidade propria: titulo, classe, equipamento, atributos, historia e habilidade unica.

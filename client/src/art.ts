@@ -227,57 +227,126 @@ export function makeVignette(s: Phaser.Scene, w: number, h: number) {
 
 const hex = (c: number) => "#" + c.toString(16).padStart(6, "0");
 
+/** Tamanho do sprite de corpo inteiro e posicao dos pes dentro dele. */
+export const HERO_W = T;
+export const HERO_H = Math.round(T * 1.25);
+export const HERO_FOOT = Math.round(T * 1.16); // y dos pes no sprite
+
+function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
 /**
- * Cria o "token" redondo do heroi a partir do rosto do NFT (textura `face_<id>`),
- * com anel neon na cor da raridade. Retorna o nome da textura.
+ * Cria o sprite de corpo inteiro (estilo Bomberman): cabeca grande com o rosto do NFT
+ * (textura `face_<id>`), tronco, bracos e pernas. Gera 3 quadros: parado (0) e passos (1, 2).
+ * Retorna o prefixo das texturas: `${nome}_0`, `${nome}_1`, `${nome}_2`.
  */
-export function makeHeroToken(s: Phaser.Scene, h: HeroData): string {
+export function makeHeroSprites(s: Phaser.Scene, h: HeroData): string {
   const name = `hero_${h.id}`;
-  if (s.textures.exists(name)) return name;
-  const size = T;
-  const tex = s.textures.createCanvas(name, size, size);
-  if (!tex) return name;
-  const ctx = tex.getContext();
+  if (s.textures.exists(`${name}_0`)) return name;
+  const supreme = h.rarity === "supreme";
   const col = hex(RARITIES[h.rarity].color);
-  const c = size / 2;
-
-  ctx.clearRect(0, 0, size, size);
-  ctx.beginPath();
-  ctx.arc(c, c, c - 2, 0, Math.PI * 2);
-  ctx.fillStyle = "#0a0818";
-  ctx.fill();
-
+  const armor = supreme ? "#8a6a1c" : hex(shade(RARITIES[h.rarity].color, 0.3));
+  const armorLight = supreme ? "#d9b04a" : hex(shade(RARITIES[h.rarity].color, 0.55));
+  const dark = "#0a0818";
   const faceKey = `face_${h.id}`;
-  if (s.textures.exists(faceKey)) {
-    const img = s.textures.get(faceKey).getSourceImage() as CanvasImageSource;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(c, c, c - 6, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.drawImage(img, 6, 6, size - 12, size - 12);
-    ctx.restore();
-  } else {
-    ctx.fillStyle = col;
-    ctx.font = `bold ${Math.round(size * 0.5)}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(h.name.charAt(0), c, c + 2);
-  }
 
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = col;
-  ctx.shadowColor = col;
-  ctx.shadowBlur = 6;
-  ctx.beginPath();
-  ctx.arc(c, c, c - 3, 0, Math.PI * 2);
-  ctx.stroke();
-  if (h.rarity === "supreme") {
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = "#ffffff";
+  for (let f = 0; f < 3; f++) {
+    const tex = s.textures.createCanvas(`${name}_${f}`, HERO_W, HERO_H);
+    if (!tex) continue;
+    const ctx = tex.getContext();
+    ctx.clearRect(0, 0, HERO_W, HERO_H);
+    const cx = HERO_W / 2;
+    // passo: quadro 1 levanta a perna esquerda, quadro 2 a direita; bracos balancam ao contrario
+    const lift = (side: number) => (f === 0 ? 0 : (f === 1) === (side === 0) ? 7 : 0);
+    const swing = (side: number) => (f === 0 ? 0 : (f === 1) === (side === 0) ? -4 : 4);
+
+    // sombra no chao
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
     ctx.beginPath();
-    ctx.arc(c, c, c - 0.8, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.ellipse(cx, HERO_FOOT + 1, 17, 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // pernas / botas
+    for (let side = 0; side < 2; side++) {
+      const lx = cx + (side === 0 ? -10 : 2);
+      const ly = HERO_FOOT - 17 - lift(side);
+      ctx.fillStyle = dark;
+      rr(ctx, lx - 1, ly - 1, 10, 18, 3); ctx.fill();
+      ctx.fillStyle = armor;
+      rr(ctx, lx, ly, 8, 16, 3); ctx.fill();
+      ctx.fillStyle = col; // bota com acabamento neon
+      rr(ctx, lx - 1, ly + 11, 10, 5, 2); ctx.fill();
+    }
+
+    // bracos
+    for (let side = 0; side < 2; side++) {
+      const ax = side === 0 ? cx - 22 : cx + 14;
+      const ay = 46 + swing(side);
+      ctx.fillStyle = dark;
+      rr(ctx, ax - 1, ay - 1, 11, 17, 5); ctx.fill();
+      ctx.fillStyle = armor;
+      rr(ctx, ax, ay, 9, 15, 4); ctx.fill();
+      ctx.fillStyle = col; // luva
+      ctx.beginPath(); ctx.arc(ax + 4.5, ay + 14, 4.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // tronco
+    ctx.fillStyle = dark;
+    rr(ctx, cx - 15, 43, 30, 24, 6); ctx.fill();
+    ctx.fillStyle = armor;
+    rr(ctx, cx - 14, 44, 28, 22, 5); ctx.fill();
+    ctx.fillStyle = armorLight;
+    rr(ctx, cx - 14, 44, 28, 7, 4); ctx.fill();
+    ctx.fillStyle = col; // cinto
+    ctx.fillRect(cx - 14, 60, 28, 3);
+    ctx.shadowColor = col; ctx.shadowBlur = 8; // nucleo de energia
+    ctx.beginPath(); ctx.arc(cx, 54, 3.2, 0, Math.PI * 2); ctx.fillStyle = "#ffffff"; ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // antena (ou aureola, no Super Lendario)
+    ctx.shadowColor = col; ctx.shadowBlur = 8;
+    if (supreme) {
+      ctx.strokeStyle = "#fff6c8"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.ellipse(cx, 4, 13, 3.5, 0, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx, 12); ctx.lineTo(cx, 5); ctx.stroke();
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(cx, 4, 3.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+
+    // cabeca: capacete com o rosto do NFT
+    const hy = 29, hr = 21;
+    ctx.fillStyle = dark;
+    ctx.beginPath(); ctx.arc(cx, hy, hr + 1, 0, Math.PI * 2); ctx.fill();
+    if (s.textures.exists(faceKey)) {
+      const img = s.textures.get(faceKey).getSourceImage() as CanvasImageSource;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, hy, hr - 2, 0, Math.PI * 2); ctx.clip();
+      ctx.drawImage(img, cx - hr, hy - hr, hr * 2, hr * 2);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = col;
+      ctx.font = `bold ${Math.round(hr)}px sans-serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(h.name.charAt(0), cx, hy + 1);
+    }
+    ctx.lineWidth = 3.5; ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(cx, hy, hr - 1, 0, Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0;
+    if (supreme) {
+      ctx.lineWidth = 1.2; ctx.strokeStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(cx, hy, hr + 0.5, 0, Math.PI * 2); ctx.stroke();
+    }
+    tex.refresh();
   }
-  tex.refresh();
   return name;
 }

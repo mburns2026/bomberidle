@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { RARITIES, Rarity, HeroData, store, addReward, rollChestRarity, assetUrl } from "../state";
-import { makeTextures, makeHeroToken, makeVignette, T } from "../art";
+import { makeTextures, makeHeroSprites, makeVignette, T, HERO_H, HERO_FOOT } from "../art";
 
 const COLS = 29;
 const ROWS = 17;
@@ -11,6 +11,7 @@ export const GAME_H = MAP_H + 2 * T;
 
 const DIRS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const key = (x: number, y: number) => `${x},${y}`;
+const footY = (gy: number) => gy * T + T - 6; // y dos pes do heroi dentro do tile
 const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
 
 interface Runtime {
@@ -23,6 +24,7 @@ interface Runtime {
   barFg: Phaser.GameObjects.Rectangle;
   zzz: Phaser.GameObjects.Text;
   sleeping: boolean;
+  frame: number; // 1 e 2 = passos
 }
 interface Bomb { gx: number; gy: number; range: number; sprite: Phaser.GameObjects.Image }
 interface Chest { sprite: Phaser.GameObjects.Image; aura?: Phaser.GameObjects.Image; rarity: Rarity }
@@ -71,15 +73,15 @@ export class FarmScene extends Phaser.Scene {
     store.heroes.forEach((data, i) => {
       const [gx, gy] = starts[i % starts.length];
       const col = RARITIES[data.rarity].color;
-      const token = makeHeroToken(this, data);
-      const aura = this.add.image(gx * T + T / 2, gy * T + T / 2, "glow")
+      const base = makeHeroSprites(this, data);
+      const aura = this.add.image(gx * T + T / 2, footY(gy) - 30, "glow")
         .setTint(col).setBlendMode(Phaser.BlendModes.ADD).setScale(0.62).setAlpha(0.5).setDepth(3.5);
       this.tweens.add({ targets: aura, alpha: { from: 0.3, to: 0.75 }, duration: 900 + i * 90, yoyo: true, repeat: -1 });
-      const sprite = this.add.image(gx * T + T / 2, gy * T + T / 2, token).setDepth(4);
+      const sprite = this.add.image(gx * T + T / 2, footY(gy), `${base}_0`).setOrigin(0.5, HERO_FOOT / HERO_H).setDepth(4);
       const barBg = this.add.rectangle(0, 0, 46, 8, 0x000000, 0.7).setDepth(6);
       const barFg = this.add.rectangle(0, 0, 42, 5, col).setOrigin(0, 0.5).setDepth(7);
       const zzz = this.add.text(0, 0, "Zzz", { fontFamily: "monospace", fontSize: "20px", color: "#9fefff", stroke: "#000", strokeThickness: 4 }).setDepth(7);
-      const h: Runtime = { data, gx, gy, sprite, aura, barBg, barFg, zzz, sleeping: false };
+      const h: Runtime = { data, gx, gy, sprite, aura, barBg, barFg, zzz, sleeping: false, frame: 0 };
       this.heroes.push(h);
       this.time.addEvent({ delay: 450 / data.speed, loop: true, callback: () => this.tick(h) });
 
@@ -88,7 +90,7 @@ export class FarmScene extends Phaser.Scene {
         this.time.addEvent({
           delay: data.rarity === "supreme" ? 280 : 650,
           loop: true,
-          callback: () => this.burst(h.sprite.x, h.sprite.y, col, 2, 0.5),
+          callback: () => this.burst(h.sprite.x, h.sprite.y - 40, col, 2, 0.5),
         });
       }
     });
@@ -103,11 +105,12 @@ export class FarmScene extends Phaser.Scene {
   update() {
     for (const h of this.heroes) {
       const { x, y } = h.sprite;
-      h.aura.setPosition(x, y).setVisible(!h.sleeping);
-      h.barBg.setPosition(x, y - 38);
-      h.barFg.setPosition(x - 21, y - 38);
+      h.aura.setPosition(x, y - 30).setVisible(!h.sleeping);
+      h.sprite.setDepth(4 + y / 10000); // quem esta mais abaixo aparece na frente
+      h.barBg.setPosition(x, y - 84);
+      h.barFg.setPosition(x - 21, y - 84);
       h.barFg.width = Math.max(0, 42 * (h.data.stamina / h.data.maxStamina));
-      h.zzz.setPosition(x + 10, y - 64).setVisible(h.sleeping);
+      h.zzz.setPosition(x + 14, y - 112).setVisible(h.sleeping);
       h.sprite.setAlpha(h.sleeping ? 0.6 : 1);
     }
   }
@@ -258,10 +261,14 @@ export class FarmScene extends Phaser.Scene {
     this.tweens.add({
       targets: h.sprite,
       x: nx * T + T / 2,
-      y: ny * T + T / 2,
+      y: footY(ny),
       duration: dur * 0.85,
     });
-    this.tweens.add({ targets: h.sprite, scaleY: 0.9, scaleX: 1.06, duration: dur * 0.42, yoyo: true });
+    // caminhada: alterna os quadros de passo e volta a posicao parada no fim
+    h.frame = h.frame === 1 ? 2 : 1;
+    h.sprite.setTexture(`hero_${h.data.id}_${h.frame}`);
+    this.time.delayedCall(dur * 0.85, () => { if (h.frame !== 0) h.sprite.setTexture(`hero_${h.data.id}_0`); });
+    this.tweens.add({ targets: h.sprite, scaleY: 0.95, scaleX: 1.04, duration: dur * 0.42, yoyo: true });
     const chest = this.chests.get(key(nx, ny));
     if (chest) this.openChest(h, nx, ny, chest);
   }
