@@ -4,9 +4,7 @@ const RARITY_MULT: Record<Rarity, number> = {
   common: 1,
   rare: 1.5,
   epic: 2.2,
-  mythic: 3,
-  legendary: 4,
-  supreme: 6,
+  legendary: 3.5,
 };
 
 const REWARD_PER_CHEST = 10_000n; // 0.01 token com 6 decimais (ajuste ao seu mint)
