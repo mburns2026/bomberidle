@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { RARITIES, Rarity, HeroData, store, addReward, mapState } from "../state";
+import { RARITIES, Rarity, HeroData, store, addReward, mapState, track, levelMult } from "../state";
 import { makeTextures } from "../art";
 import { MAPS, COLS, ROWS, MapDef } from "../maps";
 
@@ -18,7 +18,7 @@ interface Runtime {
   data: HeroData; gx: number; gy: number;
   sprite: Phaser.GameObjects.Sprite; glow: Phaser.GameObjects.Image;
   barBg: Phaser.GameObjects.Rectangle; barFg: Phaser.GameObjects.Rectangle; zzz: Phaser.GameObjects.Text;
-  sleeping: boolean; lastMove: number;
+  sleeping: boolean; lastMove: number; nextAt: number;
 }
 interface Bomb { gx: number; gy: number; range: number; luck: number; sprite: Phaser.GameObjects.Image }
 interface Chest { sprite: Phaser.GameObjects.Image; rarity: Rarity }
@@ -58,9 +58,8 @@ export class FarmScene extends Phaser.Scene {
       const barBg = this.add.rectangle(0, 0, 22, 5, 0x000000, 0.65).setDepth(6);
       const barFg = this.add.rectangle(0, 0, 20, 3, RARITIES[data.rarity].color).setOrigin(0, 0.5).setDepth(7);
       const zzz = this.add.text(0, 0, "Zzz", { fontFamily: "monospace", fontSize: "12px", color: "#ffffff", stroke: "#000", strokeThickness: 3 }).setDepth(7);
-      const h: Runtime = { data, gx, gy, sprite, glow, barBg, barFg, zzz, sleeping: false, lastMove: 0 };
+      const h: Runtime = { data, gx, gy, sprite, glow, barBg, barFg, zzz, sleeping: false, lastMove: 0, nextAt: 0 };
       this.heroes.push(h);
-      this.time.addEvent({ delay: 450 / data.speed, loop: true, callback: () => this.tick(h) });
     });
 
     this.buildMap();
@@ -70,6 +69,7 @@ export class FarmScene extends Phaser.Scene {
   update() {
     const now = this.time.now;
     for (const h of this.heroes) {
+      if (now >= h.nextAt) { h.nextAt = now + 450 / h.data.speed; this.tick(h); } // ritmo depende da velocidade atual
       const { x, y } = h.sprite;
       h.barBg.setPosition(x, y - 19);
       h.barFg.setPosition(x - 10, y - 19);
@@ -87,6 +87,7 @@ export class FarmScene extends Phaser.Scene {
   // ---------- mapa ----------
   private buildMap() {
     const m = (this.map = MAPS[mapState.index]);
+    track.map(m.id);
     this.mapObjs.forEach((o) => { this.tweens.killTweensOf(o); o.destroy(); });
     this.mapObjs = [];
     this.chests.forEach((c) => c.sprite.destroy());
@@ -243,8 +244,8 @@ export class FarmScene extends Phaser.Scene {
     const bp = this.bfs(h.gx, h.gy, (x, y) => this.nextToBlock(x, y), danger);
     if (bp) { this.idle = 0; say("Procurando blocos"); this.step(h, bp[0]); return; }
 
-    this.idle++;
-    say("Sem caminho");
+    if (danger.size === 0) this.idle++; // so conta como preso quando nao ha bombas em jogo
+    say(danger.size ? "Aguardando explosão" : "Sem caminho");
   }
 
   private step(h: Runtime, [nx, ny]: [number, number]) {
@@ -252,6 +253,7 @@ export class FarmScene extends Phaser.Scene {
     h.gx = nx; h.gy = ny;
     h.lastMove = this.time.now;
     h.sprite.play(`walk_${h.data.rarity}`, true);
+    h.sprite.anims.timeScale = h.data.speed;
     this.tweens.add({ targets: h.sprite, x: nx * T + T / 2, y: ny * T + T / 2, duration: (450 / h.data.speed) * 0.85 });
     const chest = this.chests.get(key(nx, ny));
     if (chest) this.openChest(h, nx, ny, chest);
@@ -259,8 +261,8 @@ export class FarmScene extends Phaser.Scene {
 
   private openChest(h: Runtime, x: number, y: number, chest: Chest) {
     const base = RARITIES[chest.rarity].chest;
-    const value = Math.round(base * RARITIES[h.data.rarity].mult * h.data.chestMult * (1 + h.data.power * 0.05) * 100) / 100;
-    addReward(value);
+    const value = Math.round(base * RARITIES[h.data.rarity].mult * h.data.chestMult * levelMult(h.data) * (1 + h.data.power * 0.05) * 100) / 100;
+    addReward(value, h.data, base);
     this.chests.delete(key(x, y));
     chest.sprite.destroy();
     this.burst(x * T + T / 2, y * T + T / 2, 0xffe27a, 10);
@@ -272,6 +274,7 @@ export class FarmScene extends Phaser.Scene {
 
   private placeBomb(h: Runtime) {
     h.data.stamina -= 1;
+    track.bomb();
     const range = Math.min(4, 1 + Math.ceil(h.data.power / 2));
     const sprite = this.add.image(h.gx * T + T / 2, h.gy * T + T / 2, "bomb").setDepth(3);
     this.tweens.add({ targets: sprite, scale: 1.15, duration: 280, yoyo: true, repeat: -1 });
@@ -300,6 +303,7 @@ export class FarmScene extends Phaser.Scene {
     this.blockSprites[y][x]?.destroy();
     this.blockSprites[y][x] = null;
     this.blocksLeft--;
+    track.block();
     this.burst(cx, cy, this.map.crate, 8);
     if (Math.random() < 0.3) {
       const rarity = this.rollRarity(luck);

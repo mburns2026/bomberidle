@@ -1,6 +1,9 @@
 import Phaser from "phaser";
 import { FarmScene, GAME_W, GAME_H } from "./scenes/FarmScene";
-import { RARITIES, store, refillAll, mapState } from "./state";
+import {
+  RARITIES, store, refillAll, mapState, MISSIONS, missionProgress, missionClaimed, claimMission,
+  upgrade, upgradeCost, UP_MAX, xpInfo, UpKey,
+} from "./state";
 import { MAPS } from "./maps";
 import { connect, requestClaim } from "./wallet";
 
@@ -24,58 +27,105 @@ function toast(msg: string) {
   t.classList.add("show");
   setTimeout(() => t.classList.remove("show"), 3500);
 }
+const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+};
 
-const refs = new Map<string, { fill: HTMLElement; st: HTMLElement }>();
+// ---------- abas ----------
+const tabs = document.querySelectorAll<HTMLButtonElement>(".tab");
+tabs.forEach((btn) => {
+  btn.onclick = () => {
+    tabs.forEach((b) => b.classList.toggle("on", b === btn));
+    ["heroes", "missions", "maps"].forEach((t) => { $("tab-" + t).hidden = t !== btn.dataset.tab; });
+  };
+});
+
+// ---------- herois: nivel, XP, stamina e melhorias ----------
+const UPS: { key: UpKey; label: string }[] = [
+  { key: "stamina", label: "Stamina" },
+  { key: "speed", label: "Veloc." },
+  { key: "luck", label: "Sorte" },
+];
+interface HeroRef { lvl: HTMLElement; xp: HTMLElement; fill: HTMLElement; st: HTMLElement; ups: Record<UpKey, HTMLButtonElement> }
+const refs = new Map<string, HeroRef>();
 
 function buildHeroes() {
   const list = $("heroes");
   for (const h of store.heroes) {
     const r = RARITIES[h.rarity];
-    const li = document.createElement("li");
-    const img = document.createElement("img");
+    const li = el("li");
+    const img = el("img");
     img.src = import.meta.env.BASE_URL + h.portrait;
     img.alt = `Carta NFT de ${h.name}`;
     img.style.borderColor = r.css;
 
-    const info = document.createElement("div");
-    const top = document.createElement("div");
-    top.className = "hero-top";
-    const name = document.createElement("strong");
-    name.textContent = h.name;
-    const tier = document.createElement("span");
-    tier.className = "tier";
-    tier.textContent = r.label;
+    const info = el("div");
+    const top = el("div", "hero-top");
+    const tier = el("span", "tier", r.label);
     tier.style.color = r.css;
-    top.append(name, tier);
+    top.append(el("strong", "", h.name), tier);
 
-    const role = document.createElement("div");
-    role.className = "muted small";
-    role.textContent = h.role;
+    const lvl = el("span", "lvl");
+    const xpBar = el("div", "bar thin");
+    const xp = el("div");
+    xpBar.append(xp);
+    const lvlRow = el("div", "lvl-row");
+    lvlRow.append(lvl, xpBar);
 
-    const bar = document.createElement("div");
-    bar.className = "bar";
-    const fill = document.createElement("div");
+    const bar = el("div", "bar");
+    const fill = el("div");
     fill.style.background = r.css;
     bar.append(fill);
+    const st = el("div", "muted small");
 
-    const st = document.createElement("div");
-    st.className = "muted small";
+    const upsRow = el("div", "ups");
+    const ups = {} as Record<UpKey, HTMLButtonElement>;
+    for (const u of UPS) {
+      const b = el("button", "up");
+      b.onclick = () => toast(upgrade(h, u.key) ? `${h.name}: ${u.label} nível ${h.up[u.key]}` : "Pontos insuficientes ou nível máximo");
+      ups[u.key] = b;
+      upsRow.append(b);
+    }
 
-    info.append(top, role, bar, st);
+    info.append(top, el("div", "muted small", h.role), lvlRow, bar, st, upsRow);
     li.append(img, info);
     list.append(li);
-    refs.set(h.id, { fill, st });
+    refs.set(h.id, { lvl, xp, fill, st, ups });
   }
 }
 buildHeroes();
 
+// ---------- missoes diarias ----------
+const mRefs = new Map<string, { fill: HTMLElement; txt: HTMLElement; btn: HTMLButtonElement }>();
+function buildMissions() {
+  const list = $("missions");
+  for (const m of MISSIONS) {
+    const li = el("li", "mission");
+    const bar = el("div", "bar");
+    const fill = el("div");
+    fill.style.background = "#ffd24a";
+    bar.append(fill);
+    const txt = el("div", "muted small");
+    const btn = el("button", "up", "Resgatar");
+    btn.onclick = () => toast(claimMission(m.id) ? `+${m.reward} pontos resgatados` : "Missão ainda não concluída");
+    const box = el("div");
+    box.append(el("strong", "", `${m.label} · +${m.reward}`), bar, txt);
+    li.append(box, btn);
+    list.append(li);
+    mRefs.set(m.id, { fill, txt, btn });
+  }
+}
+buildMissions();
+
+// ---------- mapas ----------
 const mapBtns: HTMLButtonElement[] = [];
 function buildMaps() {
   const box = $("maps");
   const add = (label: string, onClick: () => void) => {
-    const b = document.createElement("button");
-    b.className = "chip";
-    b.textContent = label;
+    const b = el("button", "chip", label);
     b.onclick = onClick;
     box.append(b);
     mapBtns.push(b);
@@ -91,10 +141,28 @@ function render() {
   $("mapname").textContent = MAPS[mapState.index].name;
   const target = mapState.request ?? mapState.index;
   mapBtns.forEach((b, i) => b.classList.toggle("on", i === 0 ? mapState.auto : !mapState.auto && target === i - 1));
+
   for (const h of store.heroes) {
     const ref = refs.get(h.id)!;
+    const x = xpInfo(h);
+    ref.lvl.textContent = `Nv ${h.level}`;
+    ref.xp.style.width = `${Math.min(100, (x.xp / x.need) * 100)}%`;
     ref.fill.style.width = `${Math.max(0, (h.stamina / h.maxStamina) * 100)}%`;
     ref.st.textContent = `${store.status[h.id] ?? "Pronto"} · stamina ${h.stamina.toFixed(1)}/${h.maxStamina}`;
+    for (const u of UPS) {
+      const b = ref.ups[u.key], maxed = h.up[u.key] >= UP_MAX, cost = upgradeCost(h, u.key);
+      b.textContent = maxed ? `${u.label} MAX` : `${u.label} ${h.up[u.key]}/${UP_MAX} · ${cost}`;
+      b.disabled = maxed;
+      b.classList.toggle("poor", !maxed && store.pending < cost);
+    }
+  }
+  for (const m of MISSIONS) {
+    const ref = mRefs.get(m.id)!, p = Math.min(missionProgress(m), m.goal);
+    ref.fill.style.width = `${(p / m.goal) * 100}%`;
+    ref.txt.textContent = `${p}/${m.goal}`;
+    const done = missionClaimed(m.id);
+    ref.btn.textContent = done ? "Resgatado" : "Resgatar";
+    ref.btn.disabled = done || p < m.goal;
   }
 }
 render();

@@ -13,61 +13,67 @@ const shade = (c: number, f: number) => {
 };
 const shadow = (g: G, w = 22) => g.fillStyle(0x000000, 0.4).fillEllipse(16, 29, w, 6);
 
-// ---------- personagens: esqueleto comum + visual proprio, 4 quadros de caminhada ----------
-interface Look {
-  w: number; suit: number; trim: number; legs: number;
-  back?: (g: G, f: number) => void;
-  head: (g: G) => void;
-  front?: (g: G, f: number) => void;
+// ---------- bomber-bots: herois chibi (cabecao, corpo pequeno), um por raridade ----------
+interface Bot {
+  body: number; trim: number; helm: number; visor: number; eye: number; eye2?: number; wide?: number;
+  back?: (g: G, f: number) => void; top?: (g: G) => void; front?: (g: G, f: number) => void;
 }
 
-function drawChar(g: G, L: Look, f: number) {
-  const lift = [[0, 0], [-2, 0], [0, 0], [0, -2]][f], bob = [0, -1, 0, -1][f], sw = [0, 1, 0, -1][f];
-  L.back?.(g, f);
-  shadow(g, 12 + L.w * 2);
-  [16 - L.w + 1, 16 + L.w - 5].forEach((x, i) => {
-    const dy = lift[i];
-    R(g, OUT, x, 24 + dy, 4, 5); R(g, L.legs, x + 1, 24 + dy, 2, 4); R(g, shade(L.legs, 1.7), x + 1, 24 + dy, 1, 3);
-  });
+function drawBot(g: G, P: Bot, f: number) {
+  const lift = [[0, 0], [-2, 0], [0, 0], [0, -2]][f], bob = [0, -1, 0, -1][f], sw = [0, 1, 0, -1][f], wd = P.wide ?? 0;
+  P.back?.(g, f);
+  shadow(g, 20 + wd * 2);
+  [[10, lift[0]], [17, lift[1]]].forEach(([x, dy]) => { R(g, OUT, x, 27 + dy, 5, 4); R(g, P.trim, x + 1, 27 + dy, 3, 2); R(g, shade(P.body, 0.6), x + 1, 29 + dy, 3, 1); });
   g.translateCanvas(0, bob);
-  const x0 = 16 - L.w, tw = L.w * 2;
-  R(g, OUT, x0 - 1, 13, tw + 2, 12); R(g, L.suit, x0, 14, tw, 10);
-  R(g, shade(L.suit, 1.4), x0, 14, tw, 2); R(g, shade(L.suit, 0.65), x0, 22, tw, 2); R(g, shade(L.suit, 1.5), x0, 14, 1, 8);
-  R(g, L.trim, 15, 15, 2, 8);
-  R(g, OUT, x0 - 3, 15 + sw, 3, 8); R(g, L.suit, x0 - 2, 16 + sw, 2, 5); R(g, SKIN, x0 - 2, 21 + sw, 2, 2);
-  R(g, OUT, x0 + tw, 15 - sw, 3, 8); R(g, L.suit, x0 + tw, 16 - sw, 2, 5); R(g, SKIN, x0 + tw, 21 - sw, 2, 2);
-  L.head(g);
-  L.front?.(g, f);
+  // corpo
+  R(g, OUT, 10 - wd, 18, 12 + wd * 2, 9); R(g, P.body, 11 - wd, 19, 10 + wd * 2, 7);
+  R(g, shade(P.body, 1.4), 11 - wd, 19, 10 + wd * 2, 2); R(g, shade(P.body, 0.65), 11 - wd, 24, 10 + wd * 2, 2);
+  // moeda no peito (tema crypto)
+  g.fillStyle(OUT).fillCircle(16, 22, 3.5); g.fillStyle(0xffd24a).fillCircle(16, 22, 2.5); R(g, 0xfff3b0, 15, 21, 1, 1); R(g, 0xb47a10, 16, 23, 1, 1);
+  // bracos
+  R(g, OUT, 7 - wd, 19 + sw, 3, 6); R(g, P.trim, 8 - wd, 20 + sw, 1, 4);
+  R(g, OUT, 22 + wd, 19 - sw, 3, 6); R(g, P.trim, 23 + wd, 20 - sw, 1, 4);
+  // cabecao com visor
+  g.fillStyle(OUT).fillRoundedRect(6, 2, 20, 17, 6);
+  g.fillStyle(P.helm).fillRoundedRect(7, 3, 18, 15, 5);
+  R(g, shade(P.helm, 1.45), 10, 4, 9, 2); R(g, shade(P.helm, 0.7), 8, 16, 16, 2);
+  g.fillStyle(P.visor).fillRoundedRect(9, 8, 14, 8, 3);
+  R(g, P.eye, 11, 11, 3, f === 3 ? 1 : 3); R(g, P.eye2 ?? P.eye, 18, 11, 3, f === 3 ? 1 : 3);
+  R(g, 0xffffff, 12, 11, 1, 1, 0.8); R(g, 0xffffff, 19, 11, 1, 1, 0.8);
+  P.top?.(g);
+  P.front?.(g, f);
 }
 
-const LOOKS: Record<Rarity, Look> = {
-  common: { w: 5, suit: 0x3a3f5c, trim: PU, legs: 0x1b1f33, // Lyra
-    head: (g) => { R(g, OUT, 9, 3, 14, 13); R(g, SKIN, 10, 6, 12, 9); R(g, 0xd4a77c, 10, 13, 12, 2); R(g, 0x14121f, 9, 2, 14, 6); R(g, 0x14121f, 9, 6, 2, 6); R(g, OUT, 10, 9, 12, 4); R(g, CY, 10, 9, 12, 3); R(g, 0xbff6ff, 12, 10, 2, 1); R(g, 0xbff6ff, 18, 10, 2, 1); },
-    front: (g, f) => { R(g, 0xc0c8d4, 24, 12, 2, 6); R(g, 0xc0c8d4, 23, 11, 4, 2); R(g, f % 2 ? 0xffd24a : 0xff9a3c, 25, 9, 2, 2); } },
-  rare: { w: 8, suit: 0x2b2a44, trim: CY, legs: 0x1d1d33, // Titan
-    head: (g) => { R(g, OUT, 9, 2, 14, 12); R(g, 0x3b3a5c, 10, 3, 12, 10); R(g, 0x57567e, 10, 3, 12, 2); R(g, CY, 11, 7, 4, 3); R(g, MG, 17, 7, 4, 3); R(g, 0x1d1d33, 12, 11, 8, 2); },
-    front: (g) => { [[2, 0], [22, 0]].forEach(([x]) => { R(g, OUT, x, 11, 8, 8); R(g, 0x7b4bd6, x + 1, 12, 6, 6); R(g, PU, x + 1, 12, 6, 2); R(g, 0x5a38a8, x + 1, 16, 6, 2); }); R(g, 0x9b6cff, 8, 15, 16, 2); } },
-  epic: { w: 6, suit: 0x2c4a6b, trim: PU, legs: 0x23283c, // Vex
-    head: (g) => { R(g, OUT, 10, 3, 12, 12); R(g, SKIN, 11, 5, 10, 9); R(g, 0x1a1530, 10, 2, 12, 4); R(g, 0x1a1530, 12, 0, 2, 3); R(g, 0x1a1530, 17, 0, 2, 3); R(g, PU, 10, 8, 12, 3); R(g, 0xe0c8ff, 12, 9, 3, 1); R(g, 0xe0c8ff, 17, 9, 3, 1); },
-    front: (g, f) => { R(g, CY, 25, 5, 6, 9, f % 2 ? 0.5 : 0.35); R(g, 0x9bf6ff, 25, 5, 6, 1); R(g, 0x9bf6ff, 25, 13, 6, 1); R(g, 0x9bf6ff, 26, 8, 3, 1); } },
-  mythic: { w: 4, suit: 0x14161f, trim: CY, legs: 0x2a3040, // Kira
-    head: (g) => { R(g, OUT, 10, 2, 12, 12); R(g, 0x14161f, 11, 3, 10, 10); R(g, 0xaab4c8, 11, 3, 10, 2); R(g, 0x3a4458, 11, 5, 2, 7); R(g, CY, 15, 7, 2, 3); },
-    front: (g, f) => { R(g, CY, 15, 17, 2, 3, f % 2 ? 1 : 0.7); for (let i = 0; i < 9; i++) { R(g, OUT, 21 + i, 20 - i, 3, 3); R(g, 0xdfe8ff, 22 + i, 20 - i, 1, 2); } } },
-  legendary: { w: 6, suit: 0x6a3fb0, trim: MG, legs: 0x1a1530, // Jax
+const BOTS: Record<Rarity, Bot> = {
+  common: { body: 0x4a5a7a, trim: PU, helm: 0x7d8cab, visor: 0x0a1a2a, eye: CY, // Lyra
+    top: (g) => { R(g, OUT, 24, 5, 4, 7); R(g, 0x14121f, 25, 6, 2, 5); R(g, CY, 9, 10, 14, 1, 0.9); },
+    front: (g, f) => { R(g, 0xc0c8d4, 25, 20, 2, 7); R(g, 0xc0c8d4, 24, 19, 4, 2); R(g, f % 2 ? 0xffd24a : 0xff9a3c, 25, 17, 2, 2); } },
+  rare: { body: 0x6a3fb0, trim: 0x9b6cff, helm: 0x3b3a5c, visor: 0x05060f, eye: CY, eye2: MG, wide: 2, // Titan
+    front: () => {} },
+  epic: { body: 0x2c4a6b, trim: PU, helm: 0x2a3350, visor: 0x1a0f3a, eye: 0xe0c8ff, // Vex
+    top: (g) => { R(g, OUT, 10, 0, 3, 4); R(g, 0x1a1530, 11, 1, 1, 3); R(g, OUT, 16, 0, 3, 4); R(g, 0x1a1530, 17, 1, 1, 3); },
+    front: (g, f) => { R(g, CY, 25, 9, 6, 8, f % 2 ? 0.5 : 0.35); R(g, 0x9bf6ff, 25, 9, 6, 1); R(g, 0x9bf6ff, 26, 12, 3, 1); } },
+  mythic: { body: 0x14161f, trim: CY, helm: 0x2a3040, visor: 0x05060f, eye: CY, // Kira
+    top: (g) => { R(g, OUT, 13, 0, 6, 4); R(g, 0xaab4c8, 14, 1, 4, 2); },
+    front: (g) => { for (let i = 0; i < 8; i++) { R(g, OUT, 22 + i, 23 - i, 3, 3); R(g, 0xdfe8ff, 23 + i, 23 - i, 1, 2); } } },
+  legendary: { body: 0x6a3fb0, trim: MG, helm: 0x3a2a60, visor: 0x120a22, eye: MG, // Jax
     back: (g) => { g.fillStyle(MG, 0.22).fillCircle(16, 16, 15); },
-    head: (g) => { R(g, OUT, 10, 3, 12, 11); R(g, SKIN, 11, 5, 10, 8); R(g, 0x8f5cf0, 11, 10, 10, 4); R(g, MG, 13, 7, 2, 2); R(g, MG, 18, 7, 2, 2); R(g, 0x14121f, 11, 2, 10, 4); R(g, 0x14121f, 15, 0, 3, 3); },
-    front: (g) => { R(g, OUT, 4, 12, 7, 5); R(g, 0x6a3fb0, 5, 13, 5, 3); R(g, 0x8f5cf0, 5, 13, 5, 1); R(g, OUT, 21, 12, 7, 5); R(g, 0x6a3fb0, 22, 13, 5, 3); R(g, 0x8f5cf0, 22, 13, 5, 1); R(g, 0xff7af0, 3, 14, 2, 13); R(g, 0xffd0fa, 3, 14, 1, 4); R(g, 0xff7af0, 27, 14, 2, 13); R(g, 0xffd0fa, 28, 14, 1, 4); } },
-  super: { w: 6, suit: 0xf2c14a, trim: 0xffffff, legs: 0xd9a52e, // Orion
+    top: (g) => { R(g, OUT, 6, 0, 4, 4); R(g, 0x8f5cf0, 7, 1, 2, 2); R(g, OUT, 22, 0, 4, 4); R(g, 0x8f5cf0, 23, 1, 2, 2); },
+    front: () => {} },
+  super: { body: 0xf2c14a, trim: 0xffffff, helm: 0xe6c070, visor: 0x0b1a3a, eye: 0x2b6bff, // Orion
     back: (g, f) => {
       const d = [0, -1, 0, 1][f];
-      g.fillStyle(0xfff4c2, 0.35).fillCircle(16, 15, 16); g.fillStyle(0xffffff, 0.25).fillCircle(16, 15, 11);
-      R(g, OUT, 0, 6 + d, 9, 15); R(g, 0xe8ecf8, 1, 7 + d, 7, 13); R(g, 0xffffff, 1, 7 + d, 2, 13); R(g, 0xaab4d0, 3, 10 + d, 4, 1); R(g, 0xaab4d0, 2, 14 + d, 5, 1);
-      R(g, OUT, 23, 6 + d, 9, 15); R(g, 0xe8ecf8, 24, 7 + d, 7, 13); R(g, 0xffffff, 29, 7 + d, 2, 13); R(g, 0xaab4d0, 25, 10 + d, 4, 1); R(g, 0xaab4d0, 25, 14 + d, 5, 1);
+      g.fillStyle(0xfff4c2, 0.35).fillCircle(16, 15, 16);
+      R(g, OUT, 0, 10 + d, 8, 12); R(g, 0xe8ecf8, 1, 11 + d, 6, 10); R(g, 0xffffff, 1, 11 + d, 2, 10);
+      R(g, OUT, 24, 10 + d, 8, 12); R(g, 0xe8ecf8, 25, 11 + d, 6, 10); R(g, 0xffffff, 29, 11 + d, 2, 10);
     },
-    head: (g) => { R(g, OUT, 9, 2, 14, 13); R(g, OUT, 9, 0, 3, 4); R(g, OUT, 20, 0, 3, 4); R(g, 0xd9b46a, 10, 3, 12, 11); R(g, 0xd9b46a, 10, 1, 2, 3); R(g, 0xd9b46a, 20, 1, 2, 3); R(g, 0x2b6bff, 11, 7, 4, 4); R(g, 0x2b6bff, 17, 7, 4, 4); R(g, 0xffffff, 12, 8, 1, 1); R(g, 0xffffff, 18, 8, 1, 1); R(g, 0xf2c14a, 15, 10, 2, 4); },
+    top: (g) => { R(g, OUT, 7, 0, 5, 5); R(g, 0xd9b46a, 8, 1, 3, 3); R(g, OUT, 20, 0, 5, 5); R(g, 0xd9b46a, 21, 1, 3, 3); },
     front: () => {} },
 };
-LOOKS.super.front = (g) => { R(g, 0xf2c14a, 27, 4, 2, 24); R(g, OUT, 26, 1, 4, 5); R(g, 0xfff0a0, 27, 2, 2, 3); };
+// acessorios que precisam do contexto grafico (definidos aqui para manter o objeto acima enxuto)
+BOTS.rare.front = (g) => { [2, 24].forEach((x) => { R(g, OUT, x, 17, 7, 5); R(g, 0x7b4bd6, x + 1, 18, 5, 3); R(g, 0x9b6cff, x + 1, 18, 5, 1); }); };
+BOTS.legendary.front = (g) => { R(g, 0xff7af0, 2, 15, 2, 13); R(g, 0xffd0fa, 2, 15, 1, 4); R(g, 0xff7af0, 28, 15, 2, 13); R(g, 0xffd0fa, 29, 15, 1, 4); };
+BOTS.super.front = (g) => { R(g, 0xf2c14a, 28, 8, 2, 22); R(g, OUT, 27, 4, 4, 5); R(g, 0xfff0a0, 28, 5, 2, 3); };
 
 // ---------- mapas: cada bioma gera o proprio conjunto de texturas (arte original) ----------
 function mapTextures(mk: MK, m: MapDef) {
@@ -141,7 +147,7 @@ export function makeTextures(s: Phaser.Scene) {
       R(g, OUT, 14, 15, 4, 7); R(g, l, 15, 16, 2, 5);
       if (r === "mythic" || r === "legendary" || r === "super") { R(g, 0xffffff, 9, 5, 1, 4); R(g, 0xffffff, 7, 7, 5, 1); R(g, 0xffffff, 24, 3, 1, 3); R(g, 0xffffff, 23, 4, 3, 1); }
     });
-    [0, 1, 2, 3].forEach((f) => mk(`hero_${r}_${f}`, (g) => drawChar(g, LOOKS[r], f)));
+    [0, 1, 2, 3].forEach((f) => mk(`hero_${r}_${f}`, (g) => drawBot(g, BOTS[r], f)));
   });
 
   mk("bomb", (g) => {

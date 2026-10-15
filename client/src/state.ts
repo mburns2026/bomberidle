@@ -17,18 +17,32 @@ export interface HeroData {
   role: string;
   portrait: string; // carta NFT em public/
   power: number; // 1..5 -> alcance da bomba
-  speed: number; // multiplicador de velocidade
-  maxStamina: number;
+  speed: number; // multiplicador de velocidade (ja com melhorias)
+  maxStamina: number; // ja com nivel e melhorias
   stamina: number; // cada bomba gasta 1
   regen: number; // stamina recuperada por tick de descanso
   luck: number; // desloca a raridade dos baus para cima
   chestMult: number; // multiplicador do valor dos baus
   melee: boolean; // quebra blocos adjacentes sem bomba
+  level: number;
+  xp: number;
+  up: { stamina: number; speed: number; luck: number }; // niveis de melhoria
+  base: { maxStamina: number; speed: number; luck: number }; // atributos de fabrica
 }
 
-const KEY = "bomber-idle:v1";
+export type UpKey = "stamina" | "speed" | "luck";
+export const UP_MAX = 10;
+const MAX_LEVEL = 30;
 
-function load(): { pending: number; chests: number } | null {
+interface Daily { day: string; blocks: number; bombs: number; chests: number; maps: string[]; claimed: string[] }
+interface Saved {
+  pending: number; chests: number;
+  heroes?: Record<string, { xp: number; level: number; up: { stamina: number; speed: number; luck: number } }>;
+  daily?: Daily;
+}
+
+const KEY = "bomber-idle:v1"; // mesma chave: saves antigos continuam validos
+function load(): Saved | null {
   try {
     const raw = localStorage.getItem(KEY);
     return raw ? JSON.parse(raw) : null;
@@ -37,8 +51,32 @@ function load(): { pending: number; chests: number } | null {
   }
 }
 const saved = load();
+const today = () => new Date().toISOString().slice(0, 10);
+const freshDaily = (): Daily => ({ day: today(), blocks: 0, bombs: 0, chests: 0, maps: [], claimed: [] });
+const r2 = (n: number) => Math.round(n * 100) / 100;
 
-const hero = (h: Omit<HeroData, "stamina">): HeroData => ({ ...h, stamina: h.maxStamina });
+/** Recalcula os atributos a partir da base, do nivel e das melhorias. */
+export function applyStats(h: HeroData) {
+  h.maxStamina = h.base.maxStamina + 2 * h.up.stamina + (h.level - 1);
+  h.speed = r2(h.base.speed * (1 + 0.06 * h.up.speed));
+  h.luck = r2(h.base.luck + 0.15 * h.up.luck);
+}
+export const levelMult = (h: HeroData) => 1 + 0.03 * (h.level - 1);
+const xpNeed = (lv: number) => Math.round(30 * Math.pow(lv, 1.4));
+export const xpInfo = (h: HeroData) => ({ xp: h.xp, need: xpNeed(h.level) });
+
+type Factory = Omit<HeroData, "stamina" | "level" | "xp" | "up" | "base">;
+const hero = (h: Factory): HeroData => {
+  const s = saved?.heroes?.[h.id];
+  const d: HeroData = {
+    ...h, stamina: 0, level: s?.level ?? 1, xp: s?.xp ?? 0,
+    up: s?.up ?? { stamina: 0, speed: 0, luck: 0 },
+    base: { maxStamina: h.maxStamina, speed: h.speed, luck: h.luck },
+  };
+  applyStats(d);
+  d.stamina = d.maxStamina;
+  return d;
+};
 
 export const store = {
   pending: saved?.pending ?? 0, // pontos de teste (ainda sem blockchain)
@@ -52,16 +90,71 @@ export const store = {
     hero({ id: "orion", name: "Orion", rarity: "super", role: "Divino: todos os bônus, baús x2", portrait: "nft/orion.jpg", power: 5, speed: 1.8, maxStamina: 20, regen: 0.25, luck: 1.5, chestMult: 2, melee: false }),
   ] as HeroData[],
   status: {} as Record<string, string>,
+  daily: saved?.daily?.day === today() ? saved.daily : freshDaily(),
 };
 
-export function addReward(value: number) {
-  store.pending = Math.round((store.pending + value) * 100) / 100;
-  store.chests += 1;
+function persist() {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ pending: store.pending, chests: store.chests }));
+    localStorage.setItem(KEY, JSON.stringify({
+      pending: store.pending, chests: store.chests, daily: store.daily,
+      heroes: Object.fromEntries(store.heroes.map((h) => [h.id, { xp: h.xp, level: h.level, up: h.up }])),
+    }));
   } catch {
     /* sem storage: ignora */
   }
+}
+const ensureDay = () => { if (store.daily.day !== today()) store.daily = freshDaily(); };
+
+/** Bau aberto: soma pontos, XP do heroi e progresso das missoes. */
+export function addReward(value: number, h: HeroData, chestBase: number) {
+  ensureDay();
+  store.pending = r2(store.pending + value);
+  store.chests += 1;
+  store.daily.chests += 1;
+  h.xp += 5 + chestBase * 2;
+  while (h.level < MAX_LEVEL && h.xp >= xpNeed(h.level)) { h.xp -= xpNeed(h.level); h.level++; applyStats(h); }
+  persist();
+}
+
+let ticks = 0;
+const bump = () => { if (++ticks % 10 === 0) persist(); };
+export const track = {
+  block() { ensureDay(); store.daily.blocks++; bump(); },
+  bomb() { ensureDay(); store.daily.bombs++; bump(); },
+  map(id: string) { ensureDay(); if (!store.daily.maps.includes(id)) { store.daily.maps.push(id); persist(); } },
+};
+
+// ---------- melhorias (sumidouro de pontos) ----------
+export const upgradeCost = (h: HeroData, k: UpKey) => Math.round(100 * Math.pow(1.5, h.up[k]));
+export function upgrade(h: HeroData, k: UpKey): boolean {
+  const c = upgradeCost(h, k);
+  if (h.up[k] >= UP_MAX || store.pending < c) return false;
+  store.pending = r2(store.pending - c);
+  h.up[k]++;
+  applyStats(h);
+  persist();
+  return true;
+}
+
+// ---------- missoes diarias ----------
+export const MISSIONS = [
+  { id: "chests", label: "Abrir 30 baús", goal: 30, reward: 40, stat: "chests" },
+  { id: "blocks", label: "Quebrar 80 blocos", goal: 80, reward: 30, stat: "blocks" },
+  { id: "bombs", label: "Plantar 40 bombas", goal: 40, reward: 30, stat: "bombs" },
+  { id: "maps", label: "Visitar 3 mapas", goal: 3, reward: 60, stat: "maps" },
+] as const;
+export function missionProgress(m: (typeof MISSIONS)[number]): number {
+  ensureDay();
+  return m.stat === "maps" ? store.daily.maps.length : store.daily[m.stat];
+}
+export const missionClaimed = (id: string) => store.daily.claimed.includes(id);
+export function claimMission(id: string): boolean {
+  const m = MISSIONS.find((x) => x.id === id);
+  if (!m || missionClaimed(id) || missionProgress(m) < m.goal) return false;
+  store.daily.claimed.push(id);
+  store.pending = r2(store.pending + m.reward);
+  persist();
+  return true;
 }
 
 export function refillAll() {

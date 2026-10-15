@@ -2,6 +2,15 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.3.0] - 2026-10-14
+### Adicionado
+- Herois em campo no estilo chibi "bomber-bots" (cabecao, visor, moeda no peito), com o visual de cada carta NFT.
+- Progressao: XP e nivel dos herois (ate 30), 3 melhorias por heroi (Stamina, Velocidade, Sorte) pagas com pontos, o que cria um sumidouro na economia.
+- Missoes diarias com resgate de pontos; painel com abas (Herois, Missoes, Mapas).
+### Corrigido
+- Herois aguardando explosao deixam de aparecer como "Sem caminho" e nao contam como presos.
+- Velocidade de cada heroi agora acompanha as melhorias em tempo real.
+
 ## [1.2.0] - 2026-10-14
 ### Alterado
 - Fim do estilo cyberpunk no mundo: visual colorido de arcade com arte 100% original.

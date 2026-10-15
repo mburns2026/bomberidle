@@ -39,11 +39,23 @@
       #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); border: 2px solid var(--gold); padding: 10px 16px; border-radius: 8px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
       #toast.show { opacity: 1; transform: translateX(-50%); }
       @media (prefers-reduced-motion: reduce) { .bar div, #toast { transition: none; } }
+      .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+      button.tab { flex: 1; padding: 6px 8px; background: transparent; color: var(--text); border: 2px solid #5a3a1c; box-shadow: none; }
+      button.tab.on { border-color: var(--gold); color: #ffe27a; background: #3a2512; }
+      [hidden] { display: none !important; }
+      .lvl-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+      .lvl { font-size: .78rem; font-weight: 800; color: #ffe27a; min-width: 3.2ch; }
+      .bar.thin { flex: 1; height: 5px; margin: 0; }
+      .ups { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+      button.up { padding: 3px 7px; font-size: .68rem; border-radius: 6px; box-shadow: 0 2px 0 #7a3d0c; }
+      button.up.poor { filter: grayscale(.8); opacity: .75; }
+      li.mission { grid-template-columns: 1fr auto; align-items: center; }
+      li.mission .bar { margin: 6px 0 4px; }
     </style>
   </head>
   <body>
     <header>
-      <span class="title">Bomber Idle<span class="tag">v1.2.0 · <span id="mapname"></span></span></span>
+      <span class="title">Bomber Idle<span class="tag">v1.3.0 · <span id="mapname"></span></span></span>
       <span class="stat" title="Pontos pendentes (teste)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#2a1a0c"/><circle cx="12" cy="12" r="9.5" fill="#f2b632"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#b47a10" stroke-width="2"/><path d="M8 7h3v2H8z" fill="#fff6c8"/></svg>
         <b id="pending">0.00</b>
@@ -58,11 +70,22 @@
     <main>
       <div id="game"></div>
       <aside>
-        <h2>Mapas</h2>
-        <div id="maps" class="maps"></div>
-        <h2>Heróis</h2>
-        <ul id="heroes"></ul>
-        <button id="refill" class="ghost">Recarregar stamina (teste)</button>
+        <nav class="tabs">
+          <button class="tab on" data-tab="heroes">Heróis</button>
+          <button class="tab" data-tab="missions">Missões</button>
+          <button class="tab" data-tab="maps">Mapas</button>
+        </nav>
+        <section id="tab-heroes">
+          <ul id="heroes"></ul>
+          <button id="refill" class="ghost">Recarregar stamina (teste)</button>
+        </section>
+        <section id="tab-missions" hidden>
+          <ul id="missions"></ul>
+          <p class="note">As missões reiniciam todo dia. Melhorias de herói gastam os pontos pendentes.</p>
+        </section>
+        <section id="tab-maps" hidden>
+          <div id="maps" class="maps"></div>
+        </section>
         <p class="note">Os pontos são de teste e ficam salvos só neste navegador. O saque on-chain depende do servidor e do programa na devnet.</p>
       </aside>
     </main>
