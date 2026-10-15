@@ -1,13 +1,13 @@
 export type Rarity = "common" | "rare" | "epic" | "mythic" | "legendary" | "super";
 
-// chest = valor base do bau dessa raridade; mult = multiplicador do operador dessa raridade
-export const RARITIES: Record<Rarity, { label: string; color: number; css: string; mult: number; chest: number }> = {
-  common: { label: "Comum", color: 0x8d99a6, css: "#8d99a6", mult: 1, chest: 1 },
-  rare: { label: "Raro", color: 0x3fa2ff, css: "#3fa2ff", mult: 1.1, chest: 2 },
-  epic: { label: "Épico", color: 0x9b5cff, css: "#9b5cff", mult: 1.25, chest: 4 },
-  mythic: { label: "Mítico", color: 0xff3fa4, css: "#ff3fa4", mult: 1.5, chest: 8 },
-  legendary: { label: "Lendário", color: 0xffb830, css: "#ffb830", mult: 1.8, chest: 16 },
-  super: { label: "Super lendário", color: 0xfff1b8, css: "#fff1b8", mult: 2.5, chest: 40 },
+// chest = valor base do bau dessa raridade; hp = vida do bau (quanto mais raro, mais dificil); mult = multiplicador do operador dessa raridade
+export const RARITIES: Record<Rarity, { label: string; color: number; css: string; mult: number; chest: number; hp: number }> = {
+  common: { label: "Comum", color: 0x8d99a6, css: "#8d99a6", mult: 1, chest: 1, hp: 10 },
+  rare: { label: "Raro", color: 0x3fa2ff, css: "#3fa2ff", mult: 1.1, chest: 2, hp: 20 },
+  epic: { label: "Épico", color: 0x9b5cff, css: "#9b5cff", mult: 1.25, chest: 4, hp: 40 },
+  mythic: { label: "Mítico", color: 0xff3fa4, css: "#ff3fa4", mult: 1.5, chest: 8, hp: 80 },
+  legendary: { label: "Lendário", color: 0xffb830, css: "#ffb830", mult: 1.8, chest: 16, hp: 160 },
+  super: { label: "Super lendário", color: 0xfff1b8, css: "#fff1b8", mult: 2.5, chest: 40, hp: 320 },
 };
 export const RARITY_ORDER: Rarity[] = ["common", "rare", "epic", "mythic", "legendary", "super"];
 const rank = (r: Rarity) => RARITY_ORDER.indexOf(r);
@@ -18,6 +18,20 @@ export const CAPSULE_PRICE = 30000; // $BOMBERSI por Capsula de Recruta
 export const MAX_COLLECTION = 500; // operadores que cada carteira pode possuir
 export const MAX_WORKING = 15; // operadores trabalhando ao mesmo tempo
 export const START_BALANCE = 60000; // saldo de teste de um save novo (2 capsulas)
+export const OUTSIDE_RATE = 0.1; // stamina por segundo de quem descansa fora de alojamento
+export type LodgeKind = "casulo" | "modulo" | "torre";
+export const LODGING: Record<LodgeKind, { label: string; cap: number; rate: number; price: number | null }> = {
+  casulo: { label: "Casulo", cap: 3, rate: 0.25, price: 150000 }, // rate = stamina por segundo
+  modulo: { label: "Módulo", cap: 5, rate: 0.5, price: 600000 },
+  torre: { label: "Torre", cap: 8, rate: 1, price: null }, // paga em $ASG: em breve
+};
+export const MAX_LODGINGS = 20; // alojamentos por carteira
+export const BUTLER_PRICE = 1000000; // Droide Zelador (demo em $BOMBERSI)
+export const WORK_MIN = 0.3; // "Enviar todos" so leva quem tem 30%+ de stamina
+export const BUTLER_REST_AT = 0.15; // Zelador recolhe quem cai abaixo de 15%
+export const BUTLER_WORK_AT = 0.8; // e devolve ao trabalho quem chega a 80%
+/** Dano de uma bomba nos baus: cresce com o poder e o nivel do operador. */
+export const bombDamage = (d: { power: number; level: number }) => Math.round(8 + 2 * d.power + 0.4 * (d.level - 1));
 /** Chances (%) da Capsula de Recruta. Soma 100. */
 export const CAPSULE_ODDS: Record<Rarity, number> = { common: 55, rare: 24, epic: 12, mythic: 6, legendary: 2.5, super: 0.5 };
 
@@ -50,10 +64,11 @@ export const UP_MAX = 10;
 const MAX_LEVEL = 30;
 
 interface Daily { day: string; blocks: number; bombs: number; chests: number; maps: string[]; claimed: string[] }
-interface SavedOp { r: Rarity; n: number; xp: number; lv: number; up: { stamina: number; speed: number; luck: number }; j: Jitter }
+interface SavedOp { r: Rarity; n: number; xp: number; lv: number; up: { stamina: number; speed: number; luck: number }; j: Jitter; w?: 1 }
 interface Saved {
   pending: number; chests: number;
-  owned?: SavedOp[]; serial?: number;
+  owned?: SavedOp[]; serial?: number; wk?: boolean;
+  lodging?: Record<LodgeKind, number>; butler?: { owned: boolean; on: boolean };
   heroes?: Record<string, { xp: number; level: number; up: { stamina: number; speed: number; luck: number } }>; // formato antigo (<1.6)
   daily?: Daily;
 }
@@ -125,13 +140,17 @@ function initialOwned(): HeroData[] {
 }
 
 const owned = initialOwned();
+const workingIds = new Set<string>(saved?.wk ? (saved.owned ?? []).filter((o) => o.w).map((o) => `op${o.n}`) : []);
 
 export const store = {
   pending: saved ? saved.pending ?? 0 : START_BALANCE, // $BOMBERSI de teste (ainda sem blockchain)
   chests: saved?.chests ?? 0,
   serial: Math.max(saved?.serial ?? 0, ...owned.map((o) => o.serial)) + 1, // proximo numero de operador
   collection: owned, // tudo o que o jogador possui
-  heroes: [] as HeroData[], // os que estao trabalhando agora (os melhores, ate MAX_WORKING)
+  heroes: [] as HeroData[], // os que estao trabalhando agora (ate MAX_WORKING)
+  lodging: { casulo: 0, modulo: 0, torre: 0, ...(saved?.lodging ?? {}) } as Record<LodgeKind, number>,
+  butler: { owned: false, on: true, ...(saved?.butler ?? {}) },
+  housed: new Map<string, LodgeKind>(), // quem esta descansando em qual alojamento (recalculado a cada segundo)
   version: 0, // sobe quando a colecao muda (a interface se refaz)
   status: {} as Record<string, string>,
   daily: saved?.daily?.day === today() ? saved.daily : freshDaily(),
@@ -141,20 +160,29 @@ export const store = {
 export const sortOps = (list: HeroData[]) =>
   [...list].sort((a, b) => rank(b.rarity) - rank(a.rarity) || b.level - a.level || a.serial - b.serial);
 
-/** Os melhores operadores da colecao vao trabalhar (ate MAX_WORKING). */
-export function recomputeWorking() {
-  const best = sortOps(store.collection).slice(0, MAX_WORKING);
+export const isWorking = (h: HeroData) => workingIds.has(h.id);
+function syncWorking() {
+  const list = sortOps(store.collection.filter((h) => workingIds.has(h.id)));
   store.heroes.length = 0;
-  store.heroes.push(...best);
+  store.heroes.push(...list);
   store.version++;
 }
-recomputeWorking();
+/** Preenche as vagas livres com os melhores operadores descansados (stamina >= 30%). */
+export function fillSlots(): number {
+  const free = MAX_WORKING - workingIds.size;
+  const pick = sortOps(store.collection.filter((h) => !workingIds.has(h.id) && h.stamina >= WORK_MIN * h.maxStamina)).slice(0, Math.max(0, free));
+  pick.forEach((h) => workingIds.add(h.id));
+  syncWorking();
+  return pick.length;
+}
+if (saved?.wk) syncWorking(); else fillSlots();
 
 function persist() {
   try {
     localStorage.setItem(KEY, JSON.stringify({
       pending: store.pending, chests: store.chests, daily: store.daily, serial: store.serial,
-      owned: store.collection.map((h): SavedOp => ({ r: h.rarity, n: h.serial, xp: h.xp, lv: h.level, up: h.up, j: h.jitter })),
+      wk: true, lodging: store.lodging, butler: store.butler,
+      owned: store.collection.map((h): SavedOp => ({ r: h.rarity, n: h.serial, xp: h.xp, lv: h.level, up: h.up, j: h.jitter, ...(workingIds.has(h.id) ? { w: 1 as const } : {}) })),
     }));
   } catch {
     /* sem storage: ignora */
@@ -198,9 +226,69 @@ export function buyCapsule(count: number): HeroData[] | string {
   const fresh: HeroData[] = [];
   for (let i = 0; i < count; i++) fresh.push(build(rollCapsule(), store.serial++, rollJitter()));
   store.collection.push(...fresh);
-  recomputeWorking();
+  fillSlots();
   persist();
   return fresh;
+}
+
+// ---------- trabalho, descanso, alojamentos e Droide Zelador ----------
+export function setWorking(h: HeroData, on: boolean): string | null {
+  if (on) {
+    if (workingIds.size >= MAX_WORKING) return `Limite de ${MAX_WORKING} operadores trabalhando`;
+    if (h.stamina < 1) return "Sem stamina: deixe descansar primeiro";
+    workingIds.add(h.id);
+  } else workingIds.delete(h.id);
+  syncWorking();
+  persist();
+  return null;
+}
+/** Envia os mais raros descansados (30%+) para as vagas livres. */
+export function workAll(): number { const n = fillSlots(); persist(); return n; }
+export function restAll(): number { const n = workingIds.size; workingIds.clear(); syncWorking(); persist(); return n; }
+export function buyLodging(kind: LodgeKind): string | null {
+  const L = LODGING[kind];
+  if (L.price === null) return "Disponível em breve (pago em $ASG)";
+  const total = store.lodging.casulo + store.lodging.modulo + store.lodging.torre;
+  if (total >= MAX_LODGINGS) return `Limite de ${MAX_LODGINGS} alojamentos`;
+  if (store.pending < L.price) return "$BOMBERSI insuficientes";
+  store.pending = r2(store.pending - L.price);
+  store.lodging[kind]++;
+  persist();
+  return null;
+}
+export function buyButler(): string | null {
+  if (store.butler.owned) return "Você já tem o Droide Zelador";
+  if (store.pending < BUTLER_PRICE) return "$BOMBERSI insuficientes";
+  store.pending = r2(store.pending - BUTLER_PRICE);
+  store.butler.owned = true;
+  store.butler.on = true;
+  persist();
+  return null;
+}
+export function toggleButler() { store.butler.on = !store.butler.on; persist(); }
+
+/** Roda a cada segundo: Zelador troca quem cansou, e a reserva recupera stamina (mais rapido nos alojamentos). */
+export function economyTick() {
+  if (store.butler.owned && store.butler.on) {
+    let changed = false;
+    for (const h of [...store.heroes]) if (h.stamina < BUTLER_REST_AT * h.maxStamina) { workingIds.delete(h.id); changed = true; }
+    const free = MAX_WORKING - workingIds.size;
+    if (free > 0) {
+      const back = sortOps(store.collection.filter((h) => !workingIds.has(h.id) && h.stamina >= BUTLER_WORK_AT * h.maxStamina)).slice(0, free);
+      back.forEach((h) => workingIds.add(h.id));
+      changed = changed || back.length > 0;
+    }
+    if (changed) syncWorking();
+  }
+  const tired = sortOps(store.collection.filter((h) => !workingIds.has(h.id) && h.stamina < h.maxStamina));
+  store.housed.clear();
+  let i = 0;
+  for (const kind of ["torre", "modulo", "casulo"] as LodgeKind[])
+    for (let c = 0; c < store.lodging[kind] * LODGING[kind].cap && i < tired.length; c++, i++) store.housed.set(tired[i].id, kind);
+  for (const h of tired) {
+    const k = store.housed.get(h.id);
+    h.stamina = Math.min(h.maxStamina, h.stamina + (k ? LODGING[k].rate : OUTSIDE_RATE));
+  }
 }
 
 // ---------- melhorias (sumidouro de $BOMBERSI) ----------

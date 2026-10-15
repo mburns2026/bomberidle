@@ -3,6 +3,7 @@ import { FarmScene, GAME_W, GAME_H } from "./scenes/FarmScene";
 import {
   RARITIES, RARITY_ORDER, Rarity, HeroData, store, refillAll, mapState, MISSIONS, missionProgress, missionClaimed, claimMission,
   upgrade, upgradeCost, UP_MAX, xpInfo, UpKey, sortOps, buyCapsule, CAPSULE_PRICE, CAPSULE_ODDS, MAX_COLLECTION, MAX_WORKING,
+  isWorking, setWorking, workAll, restAll, buyLodging, buyButler, toggleButler, economyTick, LODGING, LodgeKind, BUTLER_PRICE, OUTSIDE_RATE, MAX_LODGINGS,
 } from "./state";
 import { MAPS } from "./maps";
 import { connect, requestClaim } from "./wallet";
@@ -51,7 +52,7 @@ const UPS: { key: UpKey; label: string }[] = [
   { key: "speed", label: "Veloc." },
   { key: "luck", label: "Sorte" },
 ];
-interface HeroRef { lvl: HTMLElement; xp: HTMLElement; fill: HTMLElement; st: HTMLElement; ups: Record<UpKey, HTMLButtonElement> }
+interface HeroRef { lvl: HTMLElement; xp: HTMLElement; fill: HTMLElement; st: HTMLElement; work: HTMLButtonElement; ups: Record<UpKey, HTMLButtonElement> }
 const refs = new Map<string, HeroRef>();
 
 let builtVersion = -1;
@@ -100,6 +101,9 @@ function buildHeroes() {
     const st = el("div", "muted small");
 
     const upsRow = el("div", "ups");
+    const work = el("button", "up");
+    work.onclick = () => { const err = setWorking(h, !isWorking(h)); if (err) toast(err); };
+    upsRow.append(work);
     const ups = {} as Record<UpKey, HTMLButtonElement>;
     for (const u of UPS) {
       const b = el("button", "up");
@@ -111,7 +115,7 @@ function buildHeroes() {
     info.append(top, el("div", "muted small", h.role), lvlRow, bar, st, upsRow);
     li.append(img, info);
     list.append(li);
-    refs.set(h.id, { lvl, xp, fill, st, ups });
+    refs.set(h.id, { lvl, xp, fill, st, work, ups });
   }
 }
 buildHeroes();
@@ -162,7 +166,7 @@ function render() {
 
   if (builtVersion !== store.version) buildHeroes();
   const working = new Set(store.heroes);
-  $("hero-info").textContent = `${store.collection.length}/${MAX_COLLECTION} operadores · ${working.size}/${MAX_WORKING} trabalhando (os melhores entram em campo)`;
+  $("hero-info").textContent = `${store.collection.length}/${MAX_COLLECTION} operadores · ${working.size}/${MAX_WORKING} trabalhando${store.butler.owned ? ` · Zelador ${store.butler.on ? "ligado" : "desligado"}` : ""}`;
   for (const h of store.collection) {
     const ref = refs.get(h.id);
     if (!ref) continue;
@@ -170,7 +174,11 @@ function render() {
     ref.lvl.textContent = `Nv ${h.level}`;
     ref.xp.style.width = `${Math.min(100, (x.xp / x.need) * 100)}%`;
     ref.fill.style.width = `${Math.max(0, (h.stamina / h.maxStamina) * 100)}%`;
-    ref.st.textContent = `${working.has(h) ? store.status[h.id] ?? "Pronto" : "Em reserva"} · stamina ${h.stamina.toFixed(1)}/${h.maxStamina}`;
+    const home = store.housed.get(h.id);
+    const where = working.has(h) ? store.status[h.id] ?? "Pronto" : home ? `Descansando · ${LODGING[home].label}` : h.stamina < h.maxStamina ? "Descansando" : "Pronto na reserva";
+    ref.st.textContent = `${where} · stamina ${h.stamina.toFixed(1)}/${h.maxStamina}`;
+    ref.work.textContent = working.has(h) ? "Recolher" : "Enviar";
+    ref.work.classList.toggle("poor", !working.has(h) && (working.size >= MAX_WORKING || h.stamina < 1));
     for (const u of UPS) {
       const b = ref.ups[u.key], maxed = h.up[u.key] >= UP_MAX, cost = upgradeCost(h, u.key);
       b.textContent = maxed ? `${u.label} MAX` : `${u.label} ${h.up[u.key]}/${UP_MAX} · ${cost}`;
@@ -190,6 +198,9 @@ function render() {
 }
 render();
 setInterval(render, 400);
+setInterval(economyTick, 1000);
+$("work-all").onclick = () => { const n = workAll(); toast(n ? `${n} operador(es) enviados ao trabalho` : "Nenhuma vaga livre ou ninguém com 30%+ de stamina"); };
+$("rest-all").onclick = () => { const n = restAll(); toast(n ? `${n} operador(es) recolhidos para descansar` : "Ninguém estava trabalhando"); };
 
 $("refill").onclick = () => { refillAll(); toast("Stamina recarregada (modo teste)"); };
 
@@ -301,6 +312,60 @@ function openCapsules() {
   });
 }
 
+function openLodging() {
+  const upd: (() => void)[] = [];
+  openModal("Alojamentos", (body) => {
+    body.append(el("p", "", `Operadores em reserva recuperam stamina sozinhos (${Math.round(OUTSIDE_RATE * 60)}/min). Em alojamentos a recuperação é bem mais rápida, e os mais raros ficam com as melhores vagas.`));
+    const grid = el("div");
+    grid.style.cssText = "display:grid;gap:10px;margin-bottom:10px";
+    (["casulo", "modulo", "torre"] as LodgeKind[]).forEach((kind) => {
+      const L = LODGING[kind];
+      const card = el("div");
+      card.style.cssText = "border:2px solid #5a3a1c;border-radius:8px;padding:10px;background:var(--card)";
+      const own = el("b"), occ = el("b");
+      const buy = el("button", "", L.price === null ? "Em breve · $ASG" : `Comprar · ${fmt(L.price)} $BOMBERSI`);
+      buy.disabled = L.price === null;
+      buy.onclick = () => { const e = buyLodging(kind); toast(e ?? `${L.label} comprado`); };
+      const r1 = kv("Capacidade", `${L.cap} operadores`), r2 = kv("Recuperação", `${Math.round(L.rate * 60)}/min`);
+      const r3 = el("div", "kv"); r3.append(el("span", "muted", "Você tem"), own);
+      const r4 = el("div", "kv"); r4.append(el("span", "muted", "Vagas ocupadas"), occ);
+      card.append(el("strong", "", L.label), r1, r2, r3, r4);
+      card.append(buy);
+      (buy.style as CSSStyleDeclaration).marginTop = "8px";
+      grid.append(card);
+      upd.push(() => {
+        const used = Array.from(store.housed.values()).filter((k) => k === kind).length;
+        own.textContent = String(store.lodging[kind]);
+        occ.textContent = `${used}/${store.lodging[kind] * L.cap}`;
+        if (L.price !== null) buy.disabled = store.pending < L.price;
+      });
+    });
+    body.append(grid);
+
+    const bc = el("div");
+    bc.style.cssText = "border:2px solid var(--gold);border-radius:8px;padding:10px;background:var(--card)";
+    const bstat = el("b");
+    const bbtn = el("button");
+    bbtn.onclick = () => {
+      if (!store.butler.owned) { const e = buyButler(); toast(e ?? "Droide Zelador ativado"); } else toggleButler();
+    };
+    const brow = el("div", "kv"); brow.append(el("span", "muted", "Estado"), bstat);
+    bc.append(
+      el("strong", "", "Droide Zelador"),
+      el("p", "small", "Cuida da sua equipe sozinho: recolhe quem cai abaixo de 15% de stamina, manda descansar e devolve ao trabalho quem chega a 80%. Um único droide cuida de todos os alojamentos."),
+      brow, bbtn,
+    );
+    bbtn.style.marginTop = "8px";
+    body.append(bc);
+    upd.push(() => {
+      bstat.textContent = !store.butler.owned ? "não comprado" : store.butler.on ? "ligado" : "desligado";
+      bbtn.textContent = !store.butler.owned ? `Comprar · ${fmt(BUTLER_PRICE)} $BOMBERSI` : store.butler.on ? "Desligar" : "Ligar";
+      bbtn.disabled = !store.butler.owned && store.pending < BUTLER_PRICE;
+    });
+    body.append(el("p", "muted small", `Limite de ${MAX_LODGINGS} alojamentos por carteira. A Torre será vendida em $ASG.`));
+  }, () => upd.forEach((f) => f()));
+}
+
 const HUB: Record<string, () => void> = {
   heroes: () => {
     closeModal();
@@ -308,10 +373,7 @@ const HUB: Record<string, () => void> = {
     document.querySelector("aside")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   },
   capsules: () => openCapsules(),
-  lodging: () => openModal("Alojamentos", soon("", "Operadores cansados recuperam stamina bem mais rápido dentro de um alojamento.", [
-    "Cápsula, Módulo e Torre: cada um com capacidade e velocidade de recuperação próprias.",
-    "Droide Zelador: leva os cansados para descansar e os devolve ao trabalho sozinho.",
-  ])),
+  lodging: () => openLodging(),
   exchange: () => openModal("Bolsa", soon("", "Compre e venda operadores raros e alojamentos com outros jogadores.", [
     "Somente raridades altas e alojamentos.",
     "Uma taxa por venda alimenta o sumidouro da economia.",
@@ -344,6 +406,7 @@ const HUB: Record<string, () => void> = {
     sec("Como funciona", [
       "Seus operadores entram em expedição automaticamente: andam pelo mapa, plantam bombas e abrem baús.",
       "Cada bomba gasta stamina. Sem stamina, o operador descansa e volta quando se recupera.",
+      "Os baús têm vida (HP): quanto mais raro, mais bombas são necessárias para abri-lo. Quem dá o golpe final leva a recompensa.",
       "Os baús rendem $BOMBERSI. Quanto mais rara a caixa e o operador, maior o ganho.",
       "Use os $BOMBERSI para melhorar Stamina, Velocidade e Sorte de cada operador.",
     ]);
@@ -352,6 +415,7 @@ const HUB: Record<string, () => void> = {
       "Missões diárias reiniciam todo dia e pagam $BOMBERSI.",
       "Cinco mapas com biomas diferentes; o modo Auto avança sozinho.",
       "Operadores sobem de nível com XP ganho nos baús (até o nível 30).",
+      "No máximo 15 operadores trabalham ao mesmo tempo. Use Enviar todos e Recolher todos, ou o Droide Zelador para automatizar.",
     ]);
   }),
   settings: () => openModal("Configurações", (body) => {

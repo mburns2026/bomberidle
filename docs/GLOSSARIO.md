@@ -15,7 +15,7 @@ Todos os nomes do Bomber Idle são próprios. Esta tabela é a referência para 
 | Operadores | Os personagens do jogador (coleção, níveis, melhorias) |
 | Cápsula de Recruta | Caixa que sorteia um operador (raridade, stats e habilidade). 30.000 $BOMBERSI |
 | Cápsula Premium | Caixa premium paga em $ASG |
-| Alojamentos | Casas onde operadores recuperam stamina mais rápido (Cápsula, Módulo, Torre) |
+| Alojamentos | Onde operadores em reserva recuperam stamina mais rápido (Casulo, Módulo, Torre) |
 | Droide Zelador | Automação: recolhe operadores cansados e os devolve ao trabalho |
 | Cofre de Recompensas | Saldo de $BOMBERSI a sacar (mínimo, taxa e histórico) |
 | Bolsa | Mercado de operadores e alojamentos entre jogadores |
@@ -42,3 +42,24 @@ Comum, Raro, Épico, Mítico, Lendário, Super lendário.
 | Chances | Comum 55%, Raro 24%, Épico 12%, Mítico 6%, Lendário 2,5%, Super lendário 0,5% |
 
 Os valores ficam em `client/src/state.ts` (seção "economia").
+
+## Alojamentos e Zelador (v1.7.0)
+| Item | Preço | Vagas | Recuperação |
+|---|---|---|---|
+| Fora de alojamento | - | ilimitado | 6/min |
+| Casulo | 150.000 $BOMBERSI | 3 | 15/min |
+| Módulo | 600.000 $BOMBERSI | 5 | 30/min |
+| Torre | em $ASG (em breve) | 8 | 60/min |
+| Droide Zelador | 1.000.000 $BOMBERSI (demo) | - | recolhe a 15%, devolve a 80% |
+
+## Baús com HP (v1.7.0)
+| Raridade | HP | Bombas (Lyra / Titan) |
+|---|---|---|
+| Comum | 10 | 1 / 1 |
+| Raro | 20 | 2 / 2 |
+| Épico | 40 | 4 / 3 |
+| Mítico | 80 | 8 / 5 |
+| Lendário | 160 | 16 / 9 |
+| Super lendário | 320 | 32 / 18 |
+
+Ajuste o HP em `RARITIES` e o dano em `bombDamage`, ambos em `client/src/state.ts`.

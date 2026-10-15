@@ -2,6 +2,18 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.7.0] - 2026-10-15
+### Adicionado
+- **Baús com HP** por raridade: Comum 10, Raro 20, Épico 40, Mítico 80, Lendário 160, Super lendário 320. Os operadores agora atacam os baús (bomba ou golpe corpo a corpo); o dano fica acumulado, barra de vida aparece ao ser atingido e quem dá o golpe final leva a recompensa.
+- Dano da bomba = 8 + 2 x poder + 0,4 x (nível - 1). Jax golpeia o baú com 40% desse dano, gastando 0,3 de stamina.
+- **Enviar todos / Recolher todos** e botão Enviar/Recolher por operador (máximo 15 trabalhando).
+- **Alojamentos**: Casulo (150.000, 3 vagas, 15/min), Módulo (600.000, 5 vagas, 30/min); Torre (8 vagas, 60/min) vendida em $ASG, em breve. Fora de alojamento a reserva recupera 6/min. Os mais raros ocupam as melhores vagas.
+- **Droide Zelador** (1.000.000 $BOMBERSI no demo): recolhe quem cai abaixo de 15% de stamina e devolve ao trabalho quem chega a 80%.
+### Alterado
+- **Operadores maiores em campo** (1,5x), com barras de stamina e efeitos reposicionados.
+- O mapa só avança quando não há mais blocos nem baús.
+- Quem trabalha agora é uma escolha salva (antes eram sempre os 15 melhores).
+
 ## [1.6.0] - 2026-10-15
 ### Adicionado
 - **Cápsula de Recruta**: 30.000 $BOMBERSI cada (x1) ou 150.000 (x5). Sorteia raridade, atributos e pequenas variações individuais. Chances: Comum 55%, Raro 24%, Épico 12%, Mítico 6%, Lendário 2,5%, Super lendário 0,5%.
