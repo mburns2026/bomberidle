@@ -2,6 +2,28 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.2.0] - 2026-10-14
+### Alterado
+- Fim do estilo cyberpunk no mundo: visual colorido de arcade com arte 100% original.
+- 5 mapas com biomas, layouts, densidade e clima proprios: Campo Verde, Deserto Dourado, Montanha Nevada, Vulcao e Selva Antiga.
+- Seletor de mapas no painel (modo Auto avanca para o proximo mapa ao limpar o atual).
+- Herois com animacao de caminhada em 4 quadros, brilho por raridade e sombras refinadas.
+- Baus de madeira com ferragens na cor da raridade, bomba classica e explosoes de fogo.
+
+## [1.1.0] - 2026-10-14
+### Adicionado
+- Mundo cyberpunk neon (chao de circuitos, torres de servidor, caixas de dados, capsulas de energia).
+- 6 herois com silhueta propria, um por raridade: Lyra (Comum), Titan (Raro), Vex (Epico), Kira (Mitico), Jax (Lendario), Orion (Super lendario).
+- 6 raridades de heroi e de bau. Habilidades: regen (Lyra), bomba grande (Titan), sorte de bau (Vex), velocidade (Kira), corte sem bomba (Jax), bonus total (Orion).
+- Cartas NFT como retrato no painel de herois.
+
+## [1.0.1] - 2026-10-14
+### Alterado
+- Novo visual: sprites com contorno, luz e sombra; borda do mapa com arvores e cercas vivas.
+- Animacao de caminhada, explosoes com chamas e particulas, particulas ao abrir baus.
+- Interface com moldura de madeira e dourado, icones e mapa ajustado a altura da tela.
+- Arte continua 100% procedural e original (gerada por codigo), pronta para ser trocada por sprites reais.
+
 ## [1.0.0] - 2026-10-13
 Primeira versao estavel do cliente e **base de todas as proximas versoes**.
 

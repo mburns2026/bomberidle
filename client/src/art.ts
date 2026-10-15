@@ -1,352 +1,158 @@
 import Phaser from "phaser";
-import { RARITIES, RARITY_ORDER, HeroData, Rarity } from "./state";
+import { RARITIES, Rarity } from "./state";
+import { MAPS, MapDef } from "./maps";
 
-/** Fator de resolucao: a arte e desenhada numa grade de 32 unidades e ampliada por K. */
-export const K = 2;
-export const U = 32; // unidades por tile
-export const T = U * K; // pixels por tile
-
-const OUT = 0x07050f;
-const CYAN = 0x2de2e6;
-const MAGENTA = 0xff3d8b;
-const VIOLET = 0xb45cff;
-const AMBER = 0xffb020;
-
+export const T = 32;
+const OUT = 0x05060f, SKIN = 0xf1c9a0, CY = 0x39e6ff, MG = 0xff3fd0, PU = 0x9b5cff;
 type G = Phaser.GameObjects.Graphics;
-
-// Helpers em "unidades"; tudo e multiplicado por K ao desenhar.
-const R = (g: G, c: number, x: number, y: number, w: number, h: number, a = 1) =>
-  g.fillStyle(c, a).fillRect(x * K, y * K, w * K, h * K);
-const C = (g: G, c: number, x: number, y: number, r: number, a = 1) =>
-  g.fillStyle(c, a).fillCircle(x * K, y * K, r * K);
-const E = (g: G, c: number, x: number, y: number, w: number, h: number, a = 1) =>
-  g.fillStyle(c, a).fillEllipse(x * K, y * K, w * K, h * K);
-const SR = (g: G, c: number, x: number, y: number, w: number, h: number, lw = 1, a = 1) =>
-  g.lineStyle(lw * K, c, a).strokeRect(x * K, y * K, w * K, h * K);
-const SC = (g: G, c: number, x: number, y: number, r: number, lw = 1, a = 1) =>
-  g.lineStyle(lw * K, c, a).strokeCircle(x * K, y * K, r * K);
-const L = (g: G, c: number, x1: number, y1: number, x2: number, y2: number, lw = 1, a = 1) =>
-  g.lineStyle(lw * K, c, a).lineBetween(x1 * K, y1 * K, x2 * K, y2 * K);
-const TRI = (g: G, c: number, x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, a = 1) =>
-  g.fillStyle(c, a).fillTriangle(x1 * K, y1 * K, x2 * K, y2 * K, x3 * K, y3 * K);
-
+type MK = (name: string, draw: (g: G) => void, w?: number, h?: number) => void;
+const R = (g: G, c: number, x: number, y: number, w: number, h: number, a = 1) => g.fillStyle(c, a).fillRect(x, y, w, h);
 const shade = (c: number, f: number) => {
   const ch = (v: number) => Math.min(255, Math.round(v * f));
   return (ch((c >> 16) & 255) << 16) | (ch((c >> 8) & 255) << 8) | ch(c & 255);
 };
-const shadow = (g: G, w = 24) => E(g, 0x000000, 16, 29, w, 6, 0.45);
+const shadow = (g: G, w = 22) => g.fillStyle(0x000000, 0.4).fillEllipse(16, 29, w, 6);
 
-/** Gerador pseudo-aleatorio simples para que a arte seja sempre igual. */
-function lcg(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a = (Math.imul(a, 1664525) + 1013904223) >>> 0;
-    return a / 4294967296;
-  };
+// ---------- personagens: esqueleto comum + visual proprio, 4 quadros de caminhada ----------
+interface Look {
+  w: number; suit: number; trim: number; legs: number;
+  back?: (g: G, f: number) => void;
+  head: (g: G) => void;
+  front?: (g: G, f: number) => void;
 }
 
-/** Neon: contorno brilhante com halos suaves. */
-function neonRect(g: G, c: number, x: number, y: number, w: number, h: number) {
-  SR(g, c, x - 1.5, y - 1.5, w + 3, h + 3, 3, 0.1);
-  SR(g, c, x - 0.5, y - 0.5, w + 1, h + 1, 2, 0.25);
-  SR(g, c, x, y, w, h, 1, 1);
+function drawChar(g: G, L: Look, f: number) {
+  const lift = [[0, 0], [-2, 0], [0, 0], [0, -2]][f], bob = [0, -1, 0, -1][f], sw = [0, 1, 0, -1][f];
+  L.back?.(g, f);
+  shadow(g, 12 + L.w * 2);
+  [16 - L.w + 1, 16 + L.w - 5].forEach((x, i) => {
+    const dy = lift[i];
+    R(g, OUT, x, 24 + dy, 4, 5); R(g, L.legs, x + 1, 24 + dy, 2, 4); R(g, shade(L.legs, 1.7), x + 1, 24 + dy, 1, 3);
+  });
+  g.translateCanvas(0, bob);
+  const x0 = 16 - L.w, tw = L.w * 2;
+  R(g, OUT, x0 - 1, 13, tw + 2, 12); R(g, L.suit, x0, 14, tw, 10);
+  R(g, shade(L.suit, 1.4), x0, 14, tw, 2); R(g, shade(L.suit, 0.65), x0, 22, tw, 2); R(g, shade(L.suit, 1.5), x0, 14, 1, 8);
+  R(g, L.trim, 15, 15, 2, 8);
+  R(g, OUT, x0 - 3, 15 + sw, 3, 8); R(g, L.suit, x0 - 2, 16 + sw, 2, 5); R(g, SKIN, x0 - 2, 21 + sw, 2, 2);
+  R(g, OUT, x0 + tw, 15 - sw, 3, 8); R(g, L.suit, x0 + tw, 16 - sw, 2, 5); R(g, SKIN, x0 + tw, 21 - sw, 2, 2);
+  L.head(g);
+  L.front?.(g, f);
 }
 
-/** Arte procedural cyberpunk. Gera todas as texturas do jogo. */
+const LOOKS: Record<Rarity, Look> = {
+  common: { w: 5, suit: 0x3a3f5c, trim: PU, legs: 0x1b1f33, // Lyra
+    head: (g) => { R(g, OUT, 9, 3, 14, 13); R(g, SKIN, 10, 6, 12, 9); R(g, 0xd4a77c, 10, 13, 12, 2); R(g, 0x14121f, 9, 2, 14, 6); R(g, 0x14121f, 9, 6, 2, 6); R(g, OUT, 10, 9, 12, 4); R(g, CY, 10, 9, 12, 3); R(g, 0xbff6ff, 12, 10, 2, 1); R(g, 0xbff6ff, 18, 10, 2, 1); },
+    front: (g, f) => { R(g, 0xc0c8d4, 24, 12, 2, 6); R(g, 0xc0c8d4, 23, 11, 4, 2); R(g, f % 2 ? 0xffd24a : 0xff9a3c, 25, 9, 2, 2); } },
+  rare: { w: 8, suit: 0x2b2a44, trim: CY, legs: 0x1d1d33, // Titan
+    head: (g) => { R(g, OUT, 9, 2, 14, 12); R(g, 0x3b3a5c, 10, 3, 12, 10); R(g, 0x57567e, 10, 3, 12, 2); R(g, CY, 11, 7, 4, 3); R(g, MG, 17, 7, 4, 3); R(g, 0x1d1d33, 12, 11, 8, 2); },
+    front: (g) => { [[2, 0], [22, 0]].forEach(([x]) => { R(g, OUT, x, 11, 8, 8); R(g, 0x7b4bd6, x + 1, 12, 6, 6); R(g, PU, x + 1, 12, 6, 2); R(g, 0x5a38a8, x + 1, 16, 6, 2); }); R(g, 0x9b6cff, 8, 15, 16, 2); } },
+  epic: { w: 6, suit: 0x2c4a6b, trim: PU, legs: 0x23283c, // Vex
+    head: (g) => { R(g, OUT, 10, 3, 12, 12); R(g, SKIN, 11, 5, 10, 9); R(g, 0x1a1530, 10, 2, 12, 4); R(g, 0x1a1530, 12, 0, 2, 3); R(g, 0x1a1530, 17, 0, 2, 3); R(g, PU, 10, 8, 12, 3); R(g, 0xe0c8ff, 12, 9, 3, 1); R(g, 0xe0c8ff, 17, 9, 3, 1); },
+    front: (g, f) => { R(g, CY, 25, 5, 6, 9, f % 2 ? 0.5 : 0.35); R(g, 0x9bf6ff, 25, 5, 6, 1); R(g, 0x9bf6ff, 25, 13, 6, 1); R(g, 0x9bf6ff, 26, 8, 3, 1); } },
+  mythic: { w: 4, suit: 0x14161f, trim: CY, legs: 0x2a3040, // Kira
+    head: (g) => { R(g, OUT, 10, 2, 12, 12); R(g, 0x14161f, 11, 3, 10, 10); R(g, 0xaab4c8, 11, 3, 10, 2); R(g, 0x3a4458, 11, 5, 2, 7); R(g, CY, 15, 7, 2, 3); },
+    front: (g, f) => { R(g, CY, 15, 17, 2, 3, f % 2 ? 1 : 0.7); for (let i = 0; i < 9; i++) { R(g, OUT, 21 + i, 20 - i, 3, 3); R(g, 0xdfe8ff, 22 + i, 20 - i, 1, 2); } } },
+  legendary: { w: 6, suit: 0x6a3fb0, trim: MG, legs: 0x1a1530, // Jax
+    back: (g) => { g.fillStyle(MG, 0.22).fillCircle(16, 16, 15); },
+    head: (g) => { R(g, OUT, 10, 3, 12, 11); R(g, SKIN, 11, 5, 10, 8); R(g, 0x8f5cf0, 11, 10, 10, 4); R(g, MG, 13, 7, 2, 2); R(g, MG, 18, 7, 2, 2); R(g, 0x14121f, 11, 2, 10, 4); R(g, 0x14121f, 15, 0, 3, 3); },
+    front: (g) => { R(g, OUT, 4, 12, 7, 5); R(g, 0x6a3fb0, 5, 13, 5, 3); R(g, 0x8f5cf0, 5, 13, 5, 1); R(g, OUT, 21, 12, 7, 5); R(g, 0x6a3fb0, 22, 13, 5, 3); R(g, 0x8f5cf0, 22, 13, 5, 1); R(g, 0xff7af0, 3, 14, 2, 13); R(g, 0xffd0fa, 3, 14, 1, 4); R(g, 0xff7af0, 27, 14, 2, 13); R(g, 0xffd0fa, 28, 14, 1, 4); } },
+  super: { w: 6, suit: 0xf2c14a, trim: 0xffffff, legs: 0xd9a52e, // Orion
+    back: (g, f) => {
+      const d = [0, -1, 0, 1][f];
+      g.fillStyle(0xfff4c2, 0.35).fillCircle(16, 15, 16); g.fillStyle(0xffffff, 0.25).fillCircle(16, 15, 11);
+      R(g, OUT, 0, 6 + d, 9, 15); R(g, 0xe8ecf8, 1, 7 + d, 7, 13); R(g, 0xffffff, 1, 7 + d, 2, 13); R(g, 0xaab4d0, 3, 10 + d, 4, 1); R(g, 0xaab4d0, 2, 14 + d, 5, 1);
+      R(g, OUT, 23, 6 + d, 9, 15); R(g, 0xe8ecf8, 24, 7 + d, 7, 13); R(g, 0xffffff, 29, 7 + d, 2, 13); R(g, 0xaab4d0, 25, 10 + d, 4, 1); R(g, 0xaab4d0, 25, 14 + d, 5, 1);
+    },
+    head: (g) => { R(g, OUT, 9, 2, 14, 13); R(g, OUT, 9, 0, 3, 4); R(g, OUT, 20, 0, 3, 4); R(g, 0xd9b46a, 10, 3, 12, 11); R(g, 0xd9b46a, 10, 1, 2, 3); R(g, 0xd9b46a, 20, 1, 2, 3); R(g, 0x2b6bff, 11, 7, 4, 4); R(g, 0x2b6bff, 17, 7, 4, 4); R(g, 0xffffff, 12, 8, 1, 1); R(g, 0xffffff, 18, 8, 1, 1); R(g, 0xf2c14a, 15, 10, 2, 4); },
+    front: () => {} },
+};
+LOOKS.super.front = (g) => { R(g, 0xf2c14a, 27, 4, 2, 24); R(g, OUT, 26, 1, 4, 5); R(g, 0xfff0a0, 27, 2, 2, 3); };
+
+// ---------- mapas: cada bioma gera o proprio conjunto de texturas (arte original) ----------
+function mapTextures(mk: MK, m: MapDef) {
+  const id = m.id;
+  const spots: [number, number][][] = [[[5, 7], [22, 20], [13, 26]], [[18, 6], [7, 22], [26, 27]], [[10, 12], [24, 14], [4, 28]]];
+  spots.forEach((pts, i) => mk(`${id}_floor${i}`, (g) => {
+    R(g, m.floor[i], 0, 0, T, T);
+    pts.forEach(([x, y]) => { R(g, m.tuft, x, y, 1, 3); R(g, m.tuft, x + 2, y + 1, 1, 2); R(g, m.tuft2, x + 1, y - 1, 1, 2); });
+    if (i === 2 && (id === "meadow" || id === "jungle")) { R(g, 0xffffff, 20, 24, 2, 2); R(g, 0xffd24a, 21, 25, 1, 1); }
+    if (i === 2 && id === "snow") { R(g, 0xffffff, 20, 24, 2, 1); R(g, 0xffffff, 8, 8, 1, 1); }
+  }));
+
+  mk(`${id}_pillar`, (g) => { // casinha do bioma
+    shadow(g, 27);
+    R(g, OUT, 3, 12, 26, 17); R(g, m.wall, 4, 14, 24, 14); R(g, shade(m.wall, 0.8), 4, 24, 24, 4);
+    R(g, OUT, 2, 3, 28, 12); R(g, m.roof, 3, 4, 26, 10); R(g, shade(m.roof, 1.25), 3, 4, 26, 3);
+    [7, 13, 19, 25].forEach((x) => R(g, shade(m.roof, 0.78), x - 1, 6, 2, 8));
+    if (id === "snow") { R(g, 0xffffff, 3, 4, 26, 4); R(g, 0xdcebf7, 3, 7, 26, 1); }
+    R(g, OUT, 12, 19, 8, 10); R(g, m.trim, 13, 20, 6, 9); R(g, 0xffd24a, 17, 24, 1, 2);
+    const win = id === "volcano" ? 0xff8a2b : 0x8fd0ff;
+    R(g, OUT, 5, 17, 5, 5); R(g, win, 6, 18, 3, 3); R(g, OUT, 22, 17, 5, 5); R(g, win, 23, 18, 3, 3);
+  });
+
+  mk(`${id}_block`, (g) => { // bloco destrutivel
+    shadow(g, 27);
+    R(g, OUT, 2, 3, 28, 26); R(g, m.crate, 3, 4, 26, 24); R(g, shade(m.crate, 1.25), 3, 4, 26, 3); R(g, shade(m.crate, 1.25), 3, 4, 3, 24);
+    R(g, m.crateDark, 3, 25, 26, 3); R(g, m.crateDark, 26, 4, 3, 24);
+    [[4, 13, 24, 2], [4, 21, 24, 2], [15, 5, 2, 8], [9, 15, 2, 6], [21, 15, 2, 6], [15, 23, 2, 2]].forEach(([x, y, w, h]) => R(g, m.crateDark, x, y, w, h));
+    if (id === "snow") R(g, 0xffffff, 6, 6, 8, 1, 0.8);
+  });
+
+  mk(`${id}_pylon`, (g) => { // borda: arvore, cacto ou rocha
+    shadow(g, 20);
+    if (id === "desert") {
+      R(g, OUT, 12, 5, 8, 25); R(g, m.border, 13, 6, 6, 23); R(g, OUT, 5, 12, 8, 4); R(g, OUT, 5, 12, 4, 10); R(g, m.border, 6, 13, 7, 2); R(g, m.border, 6, 13, 2, 8);
+      R(g, OUT, 19, 14, 8, 4); R(g, OUT, 23, 8, 4, 10); R(g, m.border, 19, 15, 7, 2); R(g, m.border, 24, 9, 2, 8); R(g, shade(m.border, 1.4), 13, 6, 1, 23);
+    } else if (id === "volcano") {
+      g.fillStyle(OUT).fillCircle(16, 19, 12); g.fillStyle(m.border).fillCircle(16, 19, 11); g.fillStyle(shade(m.border, 1.5)).fillCircle(13, 15, 5);
+      R(g, 0xff6a2a, 18, 20, 5, 1); R(g, 0xff6a2a, 21, 20, 1, 5);
+    } else {
+      R(g, OUT, 13, 20, 6, 10); R(g, 0x7a4a2a, 14, 21, 4, 9);
+      g.fillStyle(OUT).fillCircle(16, 13, 13); g.fillStyle(m.border).fillCircle(16, 13, 12); g.fillStyle(shade(m.border, 1.4)).fillCircle(13, 10, 7);
+      R(g, shade(m.border, 1.9), 10, 7, 3, 2); R(g, shade(m.border, 1.9), 17, 12, 2, 2);
+      if (id === "snow") g.fillStyle(0xffffff, 0.9).fillCircle(16, 6, 6);
+    }
+  });
+
+  mk(`${id}_wall`, (g) => { // borda: cerca viva, duna ou rochas
+    R(g, OUT, 0, 12, T, 18); R(g, m.border, 1, 13, 30, 16); R(g, shade(m.border, 1.3), 1, 13, 30, 4);
+    [[4, 20], [14, 23], [24, 19], [9, 26]].forEach(([x, y]) => R(g, shade(m.border, 0.7), x, y, 3, 2));
+    if (id === "volcano") R(g, 0xff6a2a, 1, 26, 30, 2);
+    if (id === "snow") R(g, 0xffffff, 1, 13, 30, 3);
+  });
+}
+
+/** Gera todas as texturas do jogo por codigo (arte original, sem assets externos). */
 export function makeTextures(s: Phaser.Scene) {
-  const mk = (name: string, draw: (g: G) => void, w = T, h = T) => {
-    if (s.textures.exists(name)) return;
+  const mk: MK = (name, draw, w = T, h = T) => {
     const g = s.make.graphics({ x: 0, y: 0 }, false);
     draw(g);
     g.generateTexture(name, w, h);
     g.destroy();
   };
 
-  // ---------- piso: asfalto escuro com grade e circuitos ----------
-  const floorBase = [0x0c0a20, 0x0e0b26, 0x0a091c];
-  for (let i = 0; i < 3; i++) {
-    mk(`floor${i}`, (g) => {
-      R(g, floorBase[i], 0, 0, U, U);
-      R(g, 0x13103a, 1, 1, U - 2, U - 2, 0.55);
-      // juntas da grade (neon azul bem fraco)
-      R(g, 0x2a4fa8, 0, U - 1, U, 1, 0.45);
-      R(g, 0x2a4fa8, U - 1, 0, 1, U, 0.45);
-      R(g, 0x4aa8ff, 0, 0, U, 1, 0.07);
-      if (i === 0) {
-        L(g, CYAN, 4, 20, 14, 20, 1, 0.22); L(g, CYAN, 14, 20, 14, 12, 1, 0.22); L(g, CYAN, 14, 12, 24, 12, 1, 0.22);
-        C(g, CYAN, 24, 12, 1.4, 0.5); C(g, CYAN, 4, 20, 1.2, 0.4);
-      } else if (i === 1) {
-        R(g, MAGENTA, 6, 8, 2, 2, 0.5); R(g, VIOLET, 22, 22, 2, 2, 0.5);
-        L(g, VIOLET, 8, 9, 20, 9, 1, 0.14);
-      } else {
-        L(g, 0x4aa8ff, 6, 26, 26, 6, 1, 0.1);
-        R(g, CYAN, 20, 24, 2, 2, 0.35);
-      }
-    });
-  }
-
-  // ---------- pilar indestrutivel: torre de dados ----------
-  mk("pillar", (g) => {
-    shadow(g, 27);
-    R(g, OUT, 3, 5, 26, 24);
-    R(g, 0x1a1745, 4, 6, 24, 22);
-    R(g, 0x272264, 4, 6, 24, 3);
-    R(g, 0x100e2c, 4, 24, 24, 4);
-    neonRect(g, CYAN, 4, 6, 24, 22);
-    const winCols = [CYAN, MAGENTA, 0x3a3478];
-    const rnd = lcg(7);
-    for (let row = 0; row < 3; row++)
-      for (let col = 0; col < 3; col++) {
-        const c = winCols[Math.floor(rnd() * 3)];
-        R(g, c, 8 + col * 7, 11 + row * 5, 5, 3, c === 0x3a3478 ? 1 : 0.9);
-      }
-    R(g, MAGENTA, 4, 25, 24, 1, 0.8);
-    R(g, CYAN, 14, 2, 4, 4, 0.9);
-    R(g, 0xffffff, 15, 3, 2, 2, 0.9);
-  });
-
-  // ---------- bloco destrutivel: caixa de carga ----------
-  mk("block", (g) => {
-    shadow(g, 27);
-    R(g, OUT, 3, 4, 26, 25);
-    R(g, 0x2c2358, 4, 5, 24, 23);
-    R(g, 0x3f337c, 4, 5, 24, 3);
-    R(g, 0x1b1638, 4, 24, 24, 4);
-    // listras de aviso nos cantos
-    for (let i = 0; i < 3; i++) {
-      R(g, AMBER, 5 + i * 4, 5, 2, 3, 0.9);
-      R(g, AMBER, 21 + i * 2, 25, 2, 3, 0.9);
-    }
-    L(g, 0x5b4aa8, 4, 28, 28, 5, 1, 0.9);
-    L(g, 0x5b4aa8, 4, 5, 28, 28, 1, 0.6);
-    TRI(g, MAGENTA, 16, 11, 21, 16, 16, 21);
-    TRI(g, 0xff9ec4, 16, 11, 11, 16, 16, 21);
-    neonRect(g, MAGENTA, 4, 5, 24, 23);
-  });
-
-  // ---------- borda do mapa: predios e dutos ----------
-  const wall = (name: string, seed: number, neon: number) =>
-    mk(name, (g) => {
-      R(g, 0x070614, 0, 0, U, U);
-      R(g, 0x0f0c26, 1, 3, U - 2, U - 3);
-      const rnd = lcg(seed);
-      for (let row = 0; row < 4; row++)
-        for (let col = 0; col < 5; col++) {
-          const v = rnd();
-          if (v < 0.45) continue;
-          R(g, v < 0.7 ? AMBER : v < 0.88 ? CYAN : MAGENTA, 3 + col * 6, 6 + row * 6, 3, 3, 0.85);
-        }
-      R(g, neon, 0, 0, U, 2, 0.95);
-      R(g, neon, 0, 0, U, 5, 0.12);
-      R(g, 0x2a4fa8, 0, U - 1, U, 1, 0.5);
-    });
-  wall("wall_a", 11, CYAN);
-  wall("wall_b", 23, MAGENTA);
-
-  // ---------- baus e herois por raridade ----------
-  RARITY_ORDER.forEach((r: Rarity) => {
-    const c = RARITIES[r].color;
-    const l = shade(c, 1.35);
-    const d = r === "supreme" ? 0x6b4a0a : shade(c, 0.35);
-    const lid = r === "supreme" ? 0xd9a21a : shade(c, 0.6);
-    mk(`chest_${r}`, (g) => {
+  (Object.keys(RARITIES) as Rarity[]).forEach((r) => {
+    const c = RARITIES[r].color, l = shade(c, 1.4), wood = 0x8a5a2a;
+    mk(`chest_${r}`, (g) => { // bau de madeira com ferragens da cor da raridade
       shadow(g);
-      if (r === "mythic" || r === "legendary" || r === "supreme") C(g, c, 16, 18, 14, 0.14);
-      R(g, OUT, 4, 10, 24, 18);
-      R(g, d, 5, 11, 22, 16);
-      R(g, lid, 5, 11, 22, 3);
-      R(g, c, 5, 17, 22, 1.5);
-      neonRect(g, c, 5, 11, 22, 16);
-      R(g, OUT, 13, 15, 6, 8);
-      R(g, l, 14, 16, 4, 6);
-      R(g, 0xffffff, 15, 17, 2, 2, 0.9);
-      if (r === "epic" || r === "mythic" || r === "legendary" || r === "supreme") {
-        R(g, 0xffffff, 8, 5, 1, 4); R(g, 0xffffff, 6, 7, 5, 1);
-        R(g, 0xffffff, 24, 3, 1, 3); R(g, 0xffffff, 23, 4, 3, 1);
-      }
-      if (r === "supreme") {
-        SR(g, 0xffffff, 3, 9, 26, 20, 1, 0.8);
-        TRI(g, 0xffffff, 16, 2, 18, 8, 14, 8);
-      }
+      R(g, OUT, 4, 10, 24, 18); R(g, wood, 5, 11, 22, 16); R(g, shade(wood, 1.3), 5, 11, 22, 3); R(g, shade(wood, 0.65), 5, 22, 22, 5);
+      R(g, OUT, 5, 17, 22, 2); R(g, c, 5, 11, 3, 16); R(g, c, 24, 11, 3, 16); R(g, l, 5, 11, 1, 16);
+      R(g, OUT, 14, 15, 4, 7); R(g, l, 15, 16, 2, 5);
+      if (r === "mythic" || r === "legendary" || r === "super") { R(g, 0xffffff, 9, 5, 1, 4); R(g, 0xffffff, 7, 7, 5, 1); R(g, 0xffffff, 24, 3, 1, 3); R(g, 0xffffff, 23, 4, 3, 1); }
     });
+    [0, 1, 2, 3].forEach((f) => mk(`hero_${r}_${f}`, (g) => drawChar(g, LOOKS[r], f)));
   });
 
-  // ---------- bomba de plasma ----------
   mk("bomb", (g) => {
     shadow(g, 20);
-    C(g, MAGENTA, 16, 19, 13, 0.14);
-    C(g, OUT, 16, 19, 10);
-    C(g, 0x25213f, 16, 19, 9);
-    C(g, 0x4a4678, 12, 15, 3);
-    R(g, 0xffffff, 11, 14, 1, 1, 0.9);
-    SC(g, MAGENTA, 16, 19, 9, 1.4, 1);
-    C(g, MAGENTA, 16, 20, 4, 0.95);
-    C(g, 0xffd6e8, 16, 20, 2, 1);
-    R(g, 0x8a86b0, 14, 7, 4, 4);
-    R(g, CYAN, 13, 3, 6, 4, 0.95);
-    R(g, 0xffffff, 15, 4, 2, 2, 0.95);
+    g.fillStyle(OUT).fillCircle(16, 19, 10); g.fillStyle(0x2a2f3a).fillCircle(16, 19, 9);
+    g.fillStyle(0x5a6275).fillCircle(12, 15, 3); R(g, 0xffffff, 11, 14, 1, 1);
+    R(g, 0x888888, 13, 8, 6, 3); R(g, 0x7a4a1c, 17, 4, 2, 4); R(g, 0xffd24a, 16, 1, 4, 4); R(g, 0xfff3b0, 17, 2, 2, 2);
   });
+  mk("flame", (g) => { g.fillStyle(0xff7a1a, 0.9).fillCircle(16, 16, 14); g.fillStyle(0xffd24a).fillCircle(16, 16, 9); g.fillStyle(0xfff3b0).fillCircle(16, 16, 4); });
+  mk("glow", (g) => { g.fillStyle(0xffffff, 0.1).fillCircle(16, 16, 16); g.fillStyle(0xffffff, 0.15).fillCircle(16, 16, 11); g.fillStyle(0xffffff, 0.25).fillCircle(16, 16, 6); });
+  mk("spark", (g) => R(g, 0xffffff, 0, 0, 6, 6), 6, 6);
 
-  // ---------- explosao de plasma ----------
-  mk("flame", (g) => {
-    C(g, MAGENTA, 16, 16, 15, 0.5);
-    C(g, CYAN, 16, 16, 11, 0.85);
-    C(g, 0xdffcff, 16, 16, 6.5, 1);
-    C(g, 0xffffff, 16, 16, 3, 1);
-  });
-
-  mk("spark", (g) => R(g, 0xffffff, 0, 0, 6, 6), 6 * K, 6 * K);
-
-  // aura generica (sera tingida com a cor da raridade)
-  mk(
-    "glow",
-    (g) => {
-      for (let r = 30; r >= 2; r -= 2) C(g, 0xffffff, 32, 32, r, 0.04);
-    },
-    64 * K,
-    64 * K
-  );
-
-  // linhas de varredura (CRT)
-  mk("scan", (g) => g.fillStyle(0x000000, 0.35).fillRect(0, 0, 4, 2), 4, 4);
-}
-
-/** Vinheta escura nas bordas, desenhada num canvas. */
-export function makeVignette(s: Phaser.Scene, w: number, h: number) {
-  if (s.textures.exists("vignette")) return;
-  const tex = s.textures.createCanvas("vignette", w, h);
-  if (!tex) return;
-  const ctx = tex.getContext();
-  const grad = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.72);
-  grad.addColorStop(0, "rgba(0,0,0,0)");
-  grad.addColorStop(1, "rgba(3,0,12,0.7)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, w, h);
-  tex.refresh();
-}
-
-const hex = (c: number) => "#" + c.toString(16).padStart(6, "0");
-
-/** Tamanho do sprite de corpo inteiro e posicao dos pes dentro dele. */
-export const HERO_W = T;
-export const HERO_H = Math.round(T * 1.25);
-export const HERO_FOOT = Math.round(T * 1.16); // y dos pes no sprite
-
-function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-/**
- * Cria o sprite de corpo inteiro (estilo Bomberman): cabeca grande com o rosto do NFT
- * (textura `face_<id>`), tronco, bracos e pernas. Gera 3 quadros: parado (0) e passos (1, 2).
- * Retorna o prefixo das texturas: `${nome}_0`, `${nome}_1`, `${nome}_2`.
- */
-export function makeHeroSprites(s: Phaser.Scene, h: HeroData): string {
-  const name = `hero_${h.id}`;
-  if (s.textures.exists(`${name}_0`)) return name;
-  const supreme = h.rarity === "supreme";
-  const col = hex(RARITIES[h.rarity].color);
-  const armor = supreme ? "#8a6a1c" : hex(shade(RARITIES[h.rarity].color, 0.3));
-  const armorLight = supreme ? "#d9b04a" : hex(shade(RARITIES[h.rarity].color, 0.55));
-  const dark = "#0a0818";
-  const faceKey = `face_${h.id}`;
-
-  for (let f = 0; f < 3; f++) {
-    const tex = s.textures.createCanvas(`${name}_${f}`, HERO_W, HERO_H);
-    if (!tex) continue;
-    const ctx = tex.getContext();
-    ctx.clearRect(0, 0, HERO_W, HERO_H);
-    const cx = HERO_W / 2;
-    // passo: quadro 1 levanta a perna esquerda, quadro 2 a direita; bracos balancam ao contrario
-    const lift = (side: number) => (f === 0 ? 0 : (f === 1) === (side === 0) ? 7 : 0);
-    const swing = (side: number) => (f === 0 ? 0 : (f === 1) === (side === 0) ? -4 : 4);
-
-    // sombra no chao
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.beginPath();
-    ctx.ellipse(cx, HERO_FOOT + 1, 17, 4.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // pernas / botas
-    for (let side = 0; side < 2; side++) {
-      const lx = cx + (side === 0 ? -10 : 2);
-      const ly = HERO_FOOT - 17 - lift(side);
-      ctx.fillStyle = dark;
-      rr(ctx, lx - 1, ly - 1, 10, 18, 3); ctx.fill();
-      ctx.fillStyle = armor;
-      rr(ctx, lx, ly, 8, 16, 3); ctx.fill();
-      ctx.fillStyle = col; // bota com acabamento neon
-      rr(ctx, lx - 1, ly + 11, 10, 5, 2); ctx.fill();
-    }
-
-    // bracos
-    for (let side = 0; side < 2; side++) {
-      const ax = side === 0 ? cx - 22 : cx + 14;
-      const ay = 46 + swing(side);
-      ctx.fillStyle = dark;
-      rr(ctx, ax - 1, ay - 1, 11, 17, 5); ctx.fill();
-      ctx.fillStyle = armor;
-      rr(ctx, ax, ay, 9, 15, 4); ctx.fill();
-      ctx.fillStyle = col; // luva
-      ctx.beginPath(); ctx.arc(ax + 4.5, ay + 14, 4.5, 0, Math.PI * 2); ctx.fill();
-    }
-
-    // tronco
-    ctx.fillStyle = dark;
-    rr(ctx, cx - 15, 43, 30, 24, 6); ctx.fill();
-    ctx.fillStyle = armor;
-    rr(ctx, cx - 14, 44, 28, 22, 5); ctx.fill();
-    ctx.fillStyle = armorLight;
-    rr(ctx, cx - 14, 44, 28, 7, 4); ctx.fill();
-    ctx.fillStyle = col; // cinto
-    ctx.fillRect(cx - 14, 60, 28, 3);
-    ctx.shadowColor = col; ctx.shadowBlur = 8; // nucleo de energia
-    ctx.beginPath(); ctx.arc(cx, 54, 3.2, 0, Math.PI * 2); ctx.fillStyle = "#ffffff"; ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // antena (ou aureola, no Super Lendario)
-    ctx.shadowColor = col; ctx.shadowBlur = 8;
-    if (supreme) {
-      ctx.strokeStyle = "#fff6c8"; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.ellipse(cx, 4, 13, 3.5, 0, 0, Math.PI * 2); ctx.stroke();
-    } else {
-      ctx.strokeStyle = col; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(cx, 12); ctx.lineTo(cx, 5); ctx.stroke();
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(cx, 4, 3.5, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.shadowBlur = 0;
-
-    // cabeca: capacete com o rosto do NFT
-    const hy = 29, hr = 21;
-    ctx.fillStyle = dark;
-    ctx.beginPath(); ctx.arc(cx, hy, hr + 1, 0, Math.PI * 2); ctx.fill();
-    if (s.textures.exists(faceKey)) {
-      const img = s.textures.get(faceKey).getSourceImage() as CanvasImageSource;
-      ctx.save();
-      ctx.beginPath(); ctx.arc(cx, hy, hr - 2, 0, Math.PI * 2); ctx.clip();
-      ctx.drawImage(img, cx - hr, hy - hr, hr * 2, hr * 2);
-      ctx.restore();
-    } else {
-      ctx.fillStyle = col;
-      ctx.font = `bold ${Math.round(hr)}px sans-serif`;
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(h.name.charAt(0), cx, hy + 1);
-    }
-    ctx.lineWidth = 3.5; ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 6;
-    ctx.beginPath(); ctx.arc(cx, hy, hr - 1, 0, Math.PI * 2); ctx.stroke();
-    ctx.shadowBlur = 0;
-    if (supreme) {
-      ctx.lineWidth = 1.2; ctx.strokeStyle = "#ffffff";
-      ctx.beginPath(); ctx.arc(cx, hy, hr + 0.5, 0, Math.PI * 2); ctx.stroke();
-    }
-    tex.refresh();
-  }
-  return name;
+  MAPS.forEach((m) => mapTextures(mk, m));
 }

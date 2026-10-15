@@ -1,14 +1,15 @@
 import Phaser from "phaser";
-import { FarmScene, MAP_W, MAP_H } from "./scenes/FarmScene";
-import { RARITIES, store, refillAll } from "./state";
+import { FarmScene, GAME_W, GAME_H } from "./scenes/FarmScene";
+import { RARITIES, store, refillAll, mapState } from "./state";
+import { MAPS } from "./maps";
 import { connect, requestClaim } from "./wallet";
 
 new Phaser.Game({
   type: Phaser.AUTO,
   parent: "game",
-  width: MAP_W,
-  height: MAP_H,
-  backgroundColor: "#14210f",
+  width: GAME_W,
+  height: GAME_H,
+  backgroundColor: "#1b2a14",
   pixelArt: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   scene: [FarmScene],
@@ -24,40 +25,76 @@ function toast(msg: string) {
   setTimeout(() => t.classList.remove("show"), 3500);
 }
 
-function render() {
-  $("pending").textContent = store.pending.toFixed(2);
-  $("chests").textContent = String(store.chests);
+const refs = new Map<string, { fill: HTMLElement; st: HTMLElement }>();
+
+function buildHeroes() {
   const list = $("heroes");
-  list.replaceChildren();
   for (const h of store.heroes) {
     const r = RARITIES[h.rarity];
     const li = document.createElement("li");
+    const img = document.createElement("img");
+    img.src = import.meta.env.BASE_URL + h.portrait;
+    img.alt = `Carta NFT de ${h.name}`;
+    img.style.borderColor = r.css;
 
+    const info = document.createElement("div");
     const top = document.createElement("div");
     top.className = "hero-top";
-    const dot = document.createElement("span");
-    dot.className = "dot";
-    dot.style.background = r.css;
     const name = document.createElement("strong");
     name.textContent = h.name;
-    const rar = document.createElement("span");
-    rar.className = "muted";
-    rar.textContent = r.label;
-    top.append(dot, name, rar);
+    const tier = document.createElement("span");
+    tier.className = "tier";
+    tier.textContent = r.label;
+    tier.style.color = r.css;
+    top.append(name, tier);
+
+    const role = document.createElement("div");
+    role.className = "muted small";
+    role.textContent = h.role;
 
     const bar = document.createElement("div");
     bar.className = "bar";
     const fill = document.createElement("div");
-    fill.style.width = `${Math.max(0, (h.stamina / h.maxStamina) * 100)}%`;
     fill.style.background = r.css;
     bar.append(fill);
 
     const st = document.createElement("div");
     st.className = "muted small";
-    st.textContent = `${store.status[h.id] ?? "Pronto"} · stamina ${h.stamina.toFixed(1)}/${h.maxStamina}`;
 
-    li.append(top, bar, st);
+    info.append(top, role, bar, st);
+    li.append(img, info);
     list.append(li);
+    refs.set(h.id, { fill, st });
+  }
+}
+buildHeroes();
+
+const mapBtns: HTMLButtonElement[] = [];
+function buildMaps() {
+  const box = $("maps");
+  const add = (label: string, onClick: () => void) => {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.textContent = label;
+    b.onclick = onClick;
+    box.append(b);
+    mapBtns.push(b);
+  };
+  add("Auto", () => { mapState.auto = true; });
+  MAPS.forEach((m, i) => add(m.name, () => { mapState.auto = false; mapState.request = i; }));
+}
+buildMaps();
+
+function render() {
+  $("pending").textContent = store.pending.toFixed(2);
+  $("chests").textContent = String(store.chests);
+  $("mapname").textContent = MAPS[mapState.index].name;
+  const target = mapState.request ?? mapState.index;
+  mapBtns.forEach((b, i) => b.classList.toggle("on", i === 0 ? mapState.auto : !mapState.auto && target === i - 1));
+  for (const h of store.heroes) {
+    const ref = refs.get(h.id)!;
+    ref.fill.style.width = `${Math.max(0, (h.stamina / h.maxStamina) * 100)}%`;
+    ref.st.textContent = `${store.status[h.id] ?? "Pronto"} · stamina ${h.stamina.toFixed(1)}/${h.maxStamina}`;
   }
 }
 render();
