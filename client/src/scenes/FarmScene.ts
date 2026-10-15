@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { RARITIES, Rarity, HeroData, store, addReward, mapState, track, levelMult } from "../state";
+import { RARITIES, Rarity, HeroData, store, addReward, mapState, track, levelMult, REWARD_SCALE } from "../state";
 import { makeTextures } from "../art";
 import { MAPS, COLS, ROWS, MapDef } from "../maps";
 
@@ -47,20 +47,7 @@ export class FarmScene extends Phaser.Scene {
       this.anims.create({ key: `walk_${r}`, frames: [0, 1, 2, 3].map((i) => ({ key: `hero_${r}_${i}` })), frameRate: 9, repeat: -1 })
     );
 
-    store.heroes.forEach((data, i) => {
-      const [gx, gy] = SPAWNS[i % SPAWNS.length];
-      const px = gx * T + T / 2, py = gy * T + T / 2;
-      const sprite = this.add.sprite(px, py, `hero_${data.rarity}_0`).setDepth(4);
-      sprite.anims.timeScale = data.speed;
-      const glow = this.add.image(px, py + 9, "glow").setTint(RARITIES[data.rarity].color).setBlendMode(Phaser.BlendModes.ADD)
-        .setScale(1.1, 0.5).setAlpha(0.6).setDepth(3.5);
-      this.tweens.add({ targets: glow, alpha: 0.9, duration: 900, yoyo: true, repeat: -1 });
-      const barBg = this.add.rectangle(0, 0, 22, 5, 0x000000, 0.65).setDepth(6);
-      const barFg = this.add.rectangle(0, 0, 20, 3, RARITIES[data.rarity].color).setOrigin(0, 0.5).setDepth(7);
-      const zzz = this.add.text(0, 0, "Zzz", { fontFamily: "monospace", fontSize: "12px", color: "#ffffff", stroke: "#000", strokeThickness: 3 }).setDepth(7);
-      const h: Runtime = { data, gx, gy, sprite, glow, barBg, barFg, zzz, sleeping: false, lastMove: 0, nextAt: 0 };
-      this.heroes.push(h);
-    });
+    store.heroes.forEach((data) => this.addRuntime(data));
 
     this.buildMap();
     this.time.addEvent({ delay: 1000, loop: true, callback: () => this.checkRegen() });
@@ -141,7 +128,37 @@ export class FarmScene extends Phaser.Scene {
     }).setDepth(7);
   }
 
+  private addRuntime(data: HeroData) {
+    const [gx, gy] = SPAWNS[this.heroes.length % SPAWNS.length];
+    const px = gx * T + T / 2, py = gy * T + T / 2;
+    const sprite = this.add.sprite(px, py, `hero_${data.rarity}_0`).setDepth(4);
+    sprite.anims.timeScale = data.speed;
+    const glow = this.add.image(px, py + 9, "glow").setTint(RARITIES[data.rarity].color).setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(1.1, 0.5).setAlpha(0.6).setDepth(3.5);
+    this.tweens.add({ targets: glow, alpha: 0.9, duration: 900, yoyo: true, repeat: -1 });
+    const barBg = this.add.rectangle(0, 0, 22, 5, 0x000000, 0.65).setDepth(6);
+    const barFg = this.add.rectangle(0, 0, 20, 3, RARITIES[data.rarity].color).setOrigin(0, 0.5).setDepth(7);
+    const zzz = this.add.text(0, 0, "Zzz", { fontFamily: "monospace", fontSize: "12px", color: "#ffffff", stroke: "#000", strokeThickness: 3 }).setDepth(7);
+    this.heroes.push({ data, gx, gy, sprite, glow, barBg, barFg, zzz, sleeping: false, lastMove: 0, nextAt: 0 });
+  }
+
+  /** Entra/sai de campo conforme a lista de operadores trabalhando mudou (ex.: nova capsula). */
+  private syncRoster() {
+    const want = new Set(store.heroes);
+    for (let i = this.heroes.length - 1; i >= 0; i--) {
+      const h = this.heroes[i];
+      if (want.has(h.data)) continue;
+      this.tweens.killTweensOf(h.sprite);
+      this.tweens.killTweensOf(h.glow);
+      [h.sprite, h.glow, h.barBg, h.barFg, h.zzz].forEach((o) => o.destroy());
+      this.heroes.splice(i, 1);
+    }
+    const have = new Set(this.heroes.map((h) => h.data));
+    store.heroes.forEach((d) => { if (!have.has(d)) this.addRuntime(d); });
+  }
+
   private checkRegen() {
+    this.syncRoster();
     if (mapState.request !== null) {
       mapState.index = mapState.request;
       mapState.request = null;
@@ -261,7 +278,7 @@ export class FarmScene extends Phaser.Scene {
 
   private openChest(h: Runtime, x: number, y: number, chest: Chest) {
     const base = RARITIES[chest.rarity].chest;
-    const value = Math.round(base * RARITIES[h.data.rarity].mult * h.data.chestMult * levelMult(h.data) * (1 + h.data.power * 0.05) * 100) / 100;
+    const value = Math.round(base * RARITIES[h.data.rarity].mult * h.data.chestMult * levelMult(h.data) * (1 + h.data.power * 0.05) * REWARD_SCALE);
     addReward(value, h.data, base);
     this.chests.delete(key(x, y));
     chest.sprite.destroy();

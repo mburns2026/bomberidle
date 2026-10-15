@@ -2,6 +2,28 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.6.0] - 2026-10-15
+### Adicionado
+- **Cápsula de Recruta**: 30.000 $BOMBERSI cada (x1) ou 150.000 (x5). Sorteia raridade, atributos e pequenas variações individuais. Chances: Comum 55%, Raro 24%, Épico 12%, Mítico 6%, Lendário 2,5%, Super lendário 0,5%.
+- Coleção de até 500 operadores, com filtro por raridade, numeração (#1, #2...) e indicação de quem está em reserva.
+- Os 15 melhores operadores (raridade, depois nível) entram em campo automaticamente; novos operadores aparecem no mapa sem recarregar.
+- Save novo começa com 1 operador Comum e 60.000 $BOMBERSI de teste (2 cápsulas).
+### Alterado
+- Economia reescalada (x100) para que a cápsula seja alcançável: recompensas de baús, missões e custo das melhorias.
+- Saves antigos migram sozinhos: os 6 operadores fixos viram #1 a #6 com nível, XP e melhorias preservados.
+- Números grandes formatados com separador de milhar.
+### Observação
+- O sorteio roda no navegador (modo demo). Na economia on-chain ele precisa rodar no servidor.
+
+## [1.5.0] - 2026-10-15
+### Adicionado
+- Hub com menu inferior: Operadores, Cápsulas, Alojamentos, Bolsa, Cofre, Convites, Manual e Config.
+- Janela modal reutilizável (fecha com Esc, clique fora ou no X).
+- Cofre mostra o saldo de $BOMBERSI e baús abertos ao vivo; Manual com o passo a passo do jogo; Config com carteira, rede e botão para apagar o progresso local.
+- Cápsulas, Alojamentos, Bolsa e Convites aparecem como "em breve" com a descrição do que virá.
+### Alterado
+- Área do mapa e painel lateral ajustados para caber acima do menu.
+
 ## [1.4.0] - 2026-10-15
 ### Alterado
 - Identidade propria: "Herois" passam a se chamar **Operadores**; moeda do jogo **$BOMBERSI**; token do estudio **$ASG**.

@@ -1,6 +1,6 @@
 export type Rarity = "common" | "rare" | "epic" | "mythic" | "legendary" | "super";
 
-// chest = valor base do bau dessa raridade; mult = multiplicador do heroi dessa raridade
+// chest = valor base do bau dessa raridade; mult = multiplicador do operador dessa raridade
 export const RARITIES: Record<Rarity, { label: string; color: number; css: string; mult: number; chest: number }> = {
   common: { label: "Comum", color: 0x8d99a6, css: "#8d99a6", mult: 1, chest: 1 },
   rare: { label: "Raro", color: 0x3fa2ff, css: "#3fa2ff", mult: 1.1, chest: 2 },
@@ -9,9 +9,23 @@ export const RARITIES: Record<Rarity, { label: string; color: number; css: strin
   legendary: { label: "Lendário", color: 0xffb830, css: "#ffb830", mult: 1.8, chest: 16 },
   super: { label: "Super lendário", color: 0xfff1b8, css: "#fff1b8", mult: 2.5, chest: 40 },
 };
+export const RARITY_ORDER: Rarity[] = ["common", "rare", "epic", "mythic", "legendary", "super"];
+const rank = (r: Rarity) => RARITY_ORDER.indexOf(r);
+
+// ---------- economia (valores de teste; ajuste aqui) ----------
+export const REWARD_SCALE = 100; // multiplica o valor dos baus, missoes e custos
+export const CAPSULE_PRICE = 30000; // $BOMBERSI por Capsula de Recruta
+export const MAX_COLLECTION = 500; // operadores que cada carteira pode possuir
+export const MAX_WORKING = 15; // operadores trabalhando ao mesmo tempo
+export const START_BALANCE = 60000; // saldo de teste de um save novo (2 capsulas)
+/** Chances (%) da Capsula de Recruta. Soma 100. */
+export const CAPSULE_ODDS: Record<Rarity, number> = { common: 55, rare: 24, epic: 12, mythic: 6, legendary: 2.5, super: 0.5 };
+
+export interface Jitter { s: number; v: number; l: number } // variacao individual: stamina, velocidade, sorte
 
 export interface HeroData {
   id: string;
+  serial: number;
   name: string;
   rarity: Rarity;
   role: string;
@@ -28,6 +42,7 @@ export interface HeroData {
   xp: number;
   up: { stamina: number; speed: number; luck: number }; // niveis de melhoria
   base: { maxStamina: number; speed: number; luck: number }; // atributos de fabrica
+  jitter: Jitter;
 }
 
 export type UpKey = "stamina" | "speed" | "luck";
@@ -35,9 +50,11 @@ export const UP_MAX = 10;
 const MAX_LEVEL = 30;
 
 interface Daily { day: string; blocks: number; bombs: number; chests: number; maps: string[]; claimed: string[] }
+interface SavedOp { r: Rarity; n: number; xp: number; lv: number; up: { stamina: number; speed: number; luck: number }; j: Jitter }
 interface Saved {
   pending: number; chests: number;
-  heroes?: Record<string, { xp: number; level: number; up: { stamina: number; speed: number; luck: number } }>;
+  owned?: SavedOp[]; serial?: number;
+  heroes?: Record<string, { xp: number; level: number; up: { stamina: number; speed: number; luck: number } }>; // formato antigo (<1.6)
   daily?: Daily;
 }
 
@@ -65,47 +82,88 @@ export const levelMult = (h: HeroData) => 1 + 0.03 * (h.level - 1);
 const xpNeed = (lv: number) => Math.round(30 * Math.pow(lv, 1.4));
 export const xpInfo = (h: HeroData) => ({ xp: h.xp, need: xpNeed(h.level) });
 
-type Factory = Omit<HeroData, "stamina" | "level" | "xp" | "up" | "base">;
-const hero = (h: Factory): HeroData => {
-  const s = saved?.heroes?.[h.id];
+// ---------- modelos de operador: um por raridade ----------
+interface Arch { key: string; name: string; role: string; portrait: string; power: number; speed: number; maxStamina: number; regen: number; luck: number; chestMult: number; melee: boolean }
+export const ARCH: Record<Rarity, Arch> = {
+  common: { key: "lyra", name: "Lyra", role: "Bio-mecânica: recupera stamina rápido", portrait: "nft/lyra.jpg", power: 1, speed: 1.0, maxStamina: 8, regen: 0.3, luck: 0, chestMult: 1, melee: false },
+  rare: { key: "titan", name: "Titan", role: "Piloto tanque: bomba grande, lento", portrait: "nft/titan.jpg", power: 5, speed: 0.8, maxStamina: 14, regen: 0.12, luck: 0, chestMult: 1, melee: false },
+  epic: { key: "vex", name: "Vex", role: "Hacker: atrai baús mais raros", portrait: "nft/vex.jpg", power: 3, speed: 1.3, maxStamina: 10, regen: 0.12, luck: 1, chestMult: 1, melee: false },
+  mythic: { key: "kira", name: "Kira", role: "Android furtiva: a mais veloz", portrait: "nft/kira.jpg", power: 2, speed: 2.0, maxStamina: 12, regen: 0.12, luck: 0.3, chestMult: 1, melee: false },
+  legendary: { key: "jax", name: "Jax", role: "Samurai: corta blocos sem bomba", portrait: "nft/jax.jpg", power: 3, speed: 1.7, maxStamina: 12, regen: 0.15, luck: 0.5, chestMult: 1, melee: true },
+  super: { key: "orion", name: "Orion", role: "Divino: todos os bônus, baús x2", portrait: "nft/orion.jpg", power: 5, speed: 1.8, maxStamina: 20, regen: 0.25, luck: 1.5, chestMult: 2, melee: false },
+};
+
+const noJitter = (): Jitter => ({ s: 0, v: 0, l: 0 });
+const rollJitter = (): Jitter => ({ s: Math.floor(Math.random() * 4) - 1, v: r2((Math.random() - 0.5) * 0.2), l: r2(Math.random() * 0.2) });
+
+function build(r: Rarity, n: number, j: Jitter, lv = 1, xp = 0, up = { stamina: 0, speed: 0, luck: 0 }): HeroData {
+  const a = ARCH[r];
   const d: HeroData = {
-    ...h, stamina: 0, level: s?.level ?? 1, xp: s?.xp ?? 0,
-    up: s?.up ?? { stamina: 0, speed: 0, luck: 0 },
-    base: { maxStamina: h.maxStamina, speed: h.speed, luck: h.luck },
+    id: `op${n}`, serial: n, name: `${a.name} #${n}`, rarity: r, role: a.role, portrait: a.portrait,
+    power: a.power, speed: a.speed, maxStamina: a.maxStamina, stamina: 0, regen: a.regen, luck: a.luck,
+    chestMult: a.chestMult, melee: a.melee, level: lv, xp, up: { ...up },
+    base: { maxStamina: a.maxStamina + j.s, speed: r2(a.speed * (1 + j.v)), luck: r2(a.luck + j.l) },
+    jitter: j,
   };
   applyStats(d);
   d.stamina = d.maxStamina;
   return d;
-};
+}
+
+function initialOwned(): HeroData[] {
+  if (saved?.owned?.length) return saved.owned.map((o) => build(o.r, o.n, o.j, o.lv, o.xp, o.up));
+  if (saved?.heroes) {
+    // migracao: os 6 operadores fixos das versoes anteriores viram operadores #1..#6 com o progresso preservado
+    const out: HeroData[] = [];
+    RARITY_ORDER.forEach((r, i) => {
+      const s = saved.heroes![ARCH[r].key];
+      out.push(build(r, i + 1, noJitter(), s?.level ?? 1, s?.xp ?? 0, s?.up));
+    });
+    return out;
+  }
+  return [build("common", 1, rollJitter())]; // operador inicial de um save novo
+}
+
+const owned = initialOwned();
 
 export const store = {
-  pending: saved?.pending ?? 0, // pontos de teste (ainda sem blockchain)
+  pending: saved ? saved.pending ?? 0 : START_BALANCE, // $BOMBERSI de teste (ainda sem blockchain)
   chests: saved?.chests ?? 0,
-  heroes: [
-    hero({ id: "lyra", name: "Lyra", rarity: "common", role: "Bio-mecânica: recupera stamina rápido", portrait: "nft/lyra.jpg", power: 1, speed: 1.0, maxStamina: 8, regen: 0.3, luck: 0, chestMult: 1, melee: false }),
-    hero({ id: "titan", name: "Titan", rarity: "rare", role: "Piloto tanque: bomba grande, lento", portrait: "nft/titan.jpg", power: 5, speed: 0.8, maxStamina: 14, regen: 0.12, luck: 0, chestMult: 1, melee: false }),
-    hero({ id: "vex", name: "Vex", rarity: "epic", role: "Hacker: atrai baús mais raros", portrait: "nft/vex.jpg", power: 3, speed: 1.3, maxStamina: 10, regen: 0.12, luck: 1, chestMult: 1, melee: false }),
-    hero({ id: "kira", name: "Kira", rarity: "mythic", role: "Android furtiva: a mais veloz", portrait: "nft/kira.jpg", power: 2, speed: 2.0, maxStamina: 12, regen: 0.12, luck: 0.3, chestMult: 1, melee: false }),
-    hero({ id: "jax", name: "Jax", rarity: "legendary", role: "Samurai: corta blocos sem bomba", portrait: "nft/jax.jpg", power: 3, speed: 1.7, maxStamina: 12, regen: 0.15, luck: 0.5, chestMult: 1, melee: true }),
-    hero({ id: "orion", name: "Orion", rarity: "super", role: "Divino: todos os bônus, baús x2", portrait: "nft/orion.jpg", power: 5, speed: 1.8, maxStamina: 20, regen: 0.25, luck: 1.5, chestMult: 2, melee: false }),
-  ] as HeroData[],
+  serial: Math.max(saved?.serial ?? 0, ...owned.map((o) => o.serial)) + 1, // proximo numero de operador
+  collection: owned, // tudo o que o jogador possui
+  heroes: [] as HeroData[], // os que estao trabalhando agora (os melhores, ate MAX_WORKING)
+  version: 0, // sobe quando a colecao muda (a interface se refaz)
   status: {} as Record<string, string>,
   daily: saved?.daily?.day === today() ? saved.daily : freshDaily(),
 };
 
+/** Ordena por raridade (maior primeiro), depois nivel e numero. */
+export const sortOps = (list: HeroData[]) =>
+  [...list].sort((a, b) => rank(b.rarity) - rank(a.rarity) || b.level - a.level || a.serial - b.serial);
+
+/** Os melhores operadores da colecao vao trabalhar (ate MAX_WORKING). */
+export function recomputeWorking() {
+  const best = sortOps(store.collection).slice(0, MAX_WORKING);
+  store.heroes.length = 0;
+  store.heroes.push(...best);
+  store.version++;
+}
+recomputeWorking();
+
 function persist() {
   try {
     localStorage.setItem(KEY, JSON.stringify({
-      pending: store.pending, chests: store.chests, daily: store.daily,
-      heroes: Object.fromEntries(store.heroes.map((h) => [h.id, { xp: h.xp, level: h.level, up: h.up }])),
+      pending: store.pending, chests: store.chests, daily: store.daily, serial: store.serial,
+      owned: store.collection.map((h): SavedOp => ({ r: h.rarity, n: h.serial, xp: h.xp, lv: h.level, up: h.up, j: h.jitter })),
     }));
   } catch {
     /* sem storage: ignora */
   }
 }
+persist(); // grava ja no formato novo (migracao)
 const ensureDay = () => { if (store.daily.day !== today()) store.daily = freshDaily(); };
 
-/** Bau aberto: soma pontos, XP do heroi e progresso das missoes. */
+/** Bau aberto: soma $BOMBERSI, XP do operador e progresso das missoes. */
 export function addReward(value: number, h: HeroData, chestBase: number) {
   ensureDay();
   store.pending = r2(store.pending + value);
@@ -124,8 +182,29 @@ export const track = {
   map(id: string) { ensureDay(); if (!store.daily.maps.includes(id)) { store.daily.maps.push(id); persist(); } },
 };
 
-// ---------- melhorias (sumidouro de pontos) ----------
-export const upgradeCost = (h: HeroData, k: UpKey) => Math.round(100 * Math.pow(1.5, h.up[k]));
+// ---------- Capsula de Recruta ----------
+// Aviso: no modo demo o sorteio roda no navegador. Com a economia on-chain, o sorteio TEM de rodar no servidor.
+function rollCapsule(): Rarity {
+  let x = Math.random() * 100;
+  for (const r of RARITY_ORDER) { x -= CAPSULE_ODDS[r]; if (x < 0) return r; }
+  return "common";
+}
+/** Compra `count` capsulas. Devolve os operadores novos ou uma mensagem de erro. */
+export function buyCapsule(count: number): HeroData[] | string {
+  const cost = CAPSULE_PRICE * count;
+  if (store.collection.length + count > MAX_COLLECTION) return `Coleção cheia (máx. ${MAX_COLLECTION} operadores)`;
+  if (store.pending < cost) return "$BOMBERSI insuficientes";
+  store.pending = r2(store.pending - cost);
+  const fresh: HeroData[] = [];
+  for (let i = 0; i < count; i++) fresh.push(build(rollCapsule(), store.serial++, rollJitter()));
+  store.collection.push(...fresh);
+  recomputeWorking();
+  persist();
+  return fresh;
+}
+
+// ---------- melhorias (sumidouro de $BOMBERSI) ----------
+export const upgradeCost = (h: HeroData, k: UpKey) => Math.round(100 * REWARD_SCALE * Math.pow(1.5, h.up[k]));
 export function upgrade(h: HeroData, k: UpKey): boolean {
   const c = upgradeCost(h, k);
   if (h.up[k] >= UP_MAX || store.pending < c) return false;
@@ -138,10 +217,10 @@ export function upgrade(h: HeroData, k: UpKey): boolean {
 
 // ---------- missoes diarias ----------
 export const MISSIONS = [
-  { id: "chests", label: "Abrir 30 baús", goal: 30, reward: 40, stat: "chests" },
-  { id: "blocks", label: "Quebrar 80 blocos", goal: 80, reward: 30, stat: "blocks" },
-  { id: "bombs", label: "Plantar 40 bombas", goal: 40, reward: 30, stat: "bombs" },
-  { id: "maps", label: "Visitar 3 mapas", goal: 3, reward: 60, stat: "maps" },
+  { id: "chests", label: "Abrir 30 baús", goal: 30, reward: 40 * REWARD_SCALE, stat: "chests" },
+  { id: "blocks", label: "Quebrar 80 blocos", goal: 80, reward: 30 * REWARD_SCALE, stat: "blocks" },
+  { id: "bombs", label: "Plantar 40 bombas", goal: 40, reward: 30 * REWARD_SCALE, stat: "bombs" },
+  { id: "maps", label: "Visitar 3 mapas", goal: 3, reward: 60 * REWARD_SCALE, stat: "maps" },
 ] as const;
 export function missionProgress(m: (typeof MISSIONS)[number]): number {
   ensureDay();
@@ -158,7 +237,7 @@ export function claimMission(id: string): boolean {
 }
 
 export function refillAll() {
-  store.heroes.forEach((h) => (h.stamina = h.maxStamina));
+  store.collection.forEach((h) => (h.stamina = h.maxStamina));
 }
 
 /** Estado de selecao de mapa: "auto" avanca para o proximo mapa ao limpar o atual. */

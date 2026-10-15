@@ -51,11 +51,32 @@
       button.up.poor { filter: grayscale(.8); opacity: .75; }
       li.mission { grid-template-columns: 1fr auto; align-items: center; }
       li.mission .bar { margin: 6px 0 4px; }
+
+      body { padding-bottom: 92px; }
+      #game { width: min(100%, calc((100vh - 190px) * 31 / 19)); }
+      aside { max-height: calc(100vh - 190px); }
+      #hub { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 8px 10px 10px; background: linear-gradient(var(--wood2), var(--wood)); border-top: 4px solid var(--gold); box-shadow: 0 -4px 0 #0008; }
+      #hub button { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 76px; padding: 6px 10px; background: var(--ink); color: var(--text); border: 2px solid #5a3a1c; box-shadow: 0 3px 0 #0008; font-size: .72rem; }
+      #hub button .ic { font-size: 1.35rem; line-height: 1; }
+      #hub button.on, #hub button:hover { border-color: var(--gold); color: #ffe27a; }
+      #hub button .soon { font-size: .56rem; color: var(--muted); font-weight: 600; }
+      #modal { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px 16px 100px; background: #000a; }
+      #modal .panel { width: min(640px, 100%); max-height: 100%; overflow: auto; background: var(--ink); border: 3px solid var(--gold); border-radius: 12px; padding: 16px; box-shadow: 0 10px 30px #000c; }
+      #modal .panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+      #modal h2 { margin: 0 auto 0 0; font-size: 1.15rem; color: #ffe27a; }
+      #modal .x { padding: 2px 10px; background: #8a2a1a; color: #fff; border-color: #4a1208; box-shadow: 0 2px 0 #4a1208; }
+      #modal p, #modal li { line-height: 1.45; }
+      #modal ol, #modal ul.plain { padding-left: 20px; margin: 8px 0; display: block; }
+      #modal .kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid #5a3a1c; }
+      #modal .kv b { color: #ffe27a; }
+      #modal .big { font-size: 1.8rem; font-weight: 800; color: #ffe27a; margin: 4px 0 10px; }
+      #modal .badge { display: inline-block; padding: 2px 8px; border: 2px solid var(--gold); border-radius: 999px; font-size: .72rem; color: #ffe27a; margin-bottom: 8px; }
+      #modal button.danger { background: linear-gradient(#d9503a, #a02a1a); border-color: #4a1208; box-shadow: 0 3px 0 #4a1208; color: #fff; }
     </style>
   </head>
   <body>
     <header>
-      <span class="title">Bomber Idle<span class="tag">v1.4.0 · <span id="mapname"></span></span></span>
+      <span class="title">Bomber Idle<span class="tag">v1.6.0 · <span id="mapname"></span></span></span>
       <span class="stat" title="$BOMBERSI pendentes (teste)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#2a1a0c"/><circle cx="12" cy="12" r="9.5" fill="#f2b632"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#b47a10" stroke-width="2"/><path d="M8 7h3v2H8z" fill="#fff6c8"/></svg>
         <b id="pending">0.00</b><small style="color:var(--muted);font-weight:700">$BOMBERSI</small>
@@ -76,8 +97,10 @@
           <button class="tab" data-tab="maps">Mapas</button>
         </nav>
         <section id="tab-heroes">
+          <p id="hero-info" class="note" style="margin:0 0 8px"></p>
+          <div id="hero-filter" class="maps"></div>
           <ul id="heroes"></ul>
-          <button id="refill" class="ghost">Recarregar stamina (teste)</button>
+          <button id="refill" class="ghost">Recarregar stamina de todos (teste)</button>
         </section>
         <section id="tab-missions" hidden>
           <ul id="missions"></ul>
@@ -89,6 +112,22 @@
         <p class="note">Os $BOMBERSI daqui são de teste e ficam salvos só neste navegador. O saque on-chain depende do servidor e do programa na devnet.</p>
       </aside>
     </main>
+    <nav id="hub" aria-label="Menu principal">
+      <button data-hub="heroes"><span class="ic">🧑‍🚀</span>Operadores</button>
+      <button data-hub="capsules"><span class="ic">📦</span>Cápsulas<span class="soon">em breve</span></button>
+      <button data-hub="lodging"><span class="ic">🏠</span>Alojamentos<span class="soon">em breve</span></button>
+      <button data-hub="exchange"><span class="ic">🪙</span>Bolsa<span class="soon">em breve</span></button>
+      <button data-hub="vault"><span class="ic">🗝️</span>Cofre</button>
+      <button data-hub="invites"><span class="ic">✉️</span>Convites<span class="soon">em breve</span></button>
+      <button data-hub="manual"><span class="ic">📖</span>Manual</button>
+      <button data-hub="settings"><span class="ic">⚙️</span>Config.</button>
+    </nav>
+    <div id="modal" hidden>
+      <div class="panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="panel-head"><h2 id="modal-title"></h2><button id="modal-close" class="x" aria-label="Fechar">✕</button></div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
     <div id="toast" role="status"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

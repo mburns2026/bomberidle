@@ -13,7 +13,7 @@ Todos os nomes do Bomber Idle são próprios. Esta tabela é a referência para 
 |---|---|
 | Expedição | Modo principal: operadores trabalham no mapa, plantando bombas e abrindo baús |
 | Operadores | Os personagens do jogador (coleção, níveis, melhorias) |
-| Cápsula de Recruta | Caixa que sorteia um operador (raridade, stats e habilidade) |
+| Cápsula de Recruta | Caixa que sorteia um operador (raridade, stats e habilidade). 30.000 $BOMBERSI |
 | Cápsula Premium | Caixa premium paga em $ASG |
 | Alojamentos | Casas onde operadores recuperam stamina mais rápido (Cápsula, Módulo, Torre) |
 | Droide Zelador | Automação: recolhe operadores cansados e os devolve ao trabalho |
@@ -31,3 +31,14 @@ Comum, Raro, Épico, Mítico, Lendário, Super lendário.
 - Arte 100% original (gerada por código ou criada por nós); nunca usar assets de outros jogos.
 - Textos, números (preços, taxas, limites) e layout próprios; não copiar de outros projetos.
 - Nome do jogo: **Bomber Idle**, por **AI Studios Games**.
+
+## Economia do modo demo (v1.6.0)
+| Item | Valor |
+|---|---|
+| Cápsula de Recruta | 30.000 $BOMBERSI |
+| Coleção máxima | 500 operadores |
+| Trabalhando ao mesmo tempo | 15 |
+| Saldo inicial de teste | 60.000 $BOMBERSI |
+| Chances | Comum 55%, Raro 24%, Épico 12%, Mítico 6%, Lendário 2,5%, Super lendário 0,5% |
+
+Os valores ficam em `client/src/state.ts` (seção "economia").
