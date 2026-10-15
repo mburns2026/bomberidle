@@ -129,46 +129,6 @@ function mapTextures(mk: MK, m: MapDef) {
   });
 }
 
-// ---------- sprites PNG dos operadores (um personagem por raridade) ----------
-export const SPRITE_FILES: Record<Rarity, string> = { common: "lyra", rare: "titan", epic: "vex", mythic: "kira", legendary: "jax", super: "orion" };
-export const SPRITE_PX = 96; // lado da textura quadrada de cada quadro
-
-/** Carrega os PNGs de public/sprites (chamar no preload da cena). */
-export function preloadSprites(s: Phaser.Scene) {
-  const base = import.meta.env.BASE_URL;
-  (Object.keys(SPRITE_FILES) as Rarity[]).forEach((r) => s.load.image(`spr_${r}`, `${base}sprites/${SPRITE_FILES[r]}.png`));
-}
-
-/** Gera os 4 quadros de caminhada (balanco e quique) a partir da ilustracao, com brilho na cor da raridade. */
-function bakeHero(s: Phaser.Scene, r: Rarity): boolean {
-  if (!s.textures.exists(`spr_${r}`)) return false;
-  const src = s.textures.get(`spr_${r}`).getSourceImage() as HTMLImageElement;
-  const P = SPRITE_PX, box = P - 8;
-  const k = Math.min(box / src.height, box / src.width);
-  const w = src.width * k, h = src.height * k;
-  const bob = [0, -2, 0, -2], rot = [0, -0.04, 0, 0.04], sq = [1, 0.97, 1, 0.97];
-  for (let f = 0; f < 4; f++) {
-    const name = `hero_${r}_${f}`;
-    if (s.textures.exists(name)) s.textures.remove(name);
-    const tex = s.textures.createCanvas(name, P, P);
-    if (!tex) return false;
-    const ctx = tex.getContext();
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.translate(P / 2, P - 4 + bob[f]);
-    ctx.rotate(rot[f]);
-    ctx.scale(1, sq[f]);
-    ctx.shadowColor = RARITIES[r].css; // aura fina: destaca o personagem em qualquer mapa
-    ctx.shadowBlur = 5;
-    ctx.drawImage(src, -w / 2, -h, w, h);
-    ctx.shadowBlur = 0;
-    ctx.drawImage(src, -w / 2, -h, w, h);
-    tex.refresh();
-    tex.setFilter(Phaser.Textures.FilterMode.LINEAR); // suaviza so os personagens; o mapa segue pixelado
-  }
-  return true;
-}
-
 /** Gera todas as texturas do jogo por codigo (arte original, sem assets externos). */
 export function makeTextures(s: Phaser.Scene) {
   const mk: MK = (name, draw, w = T, h = T) => {
@@ -187,8 +147,7 @@ export function makeTextures(s: Phaser.Scene) {
       R(g, OUT, 14, 15, 4, 7); R(g, l, 15, 16, 2, 5);
       if (r === "mythic" || r === "legendary" || r === "super") { R(g, 0xffffff, 9, 5, 1, 4); R(g, 0xffffff, 7, 7, 5, 1); R(g, 0xffffff, 24, 3, 1, 3); R(g, 0xffffff, 23, 4, 3, 1); }
     });
-    // sprite PNG se carregado; senao o boneco desenhado por codigo (ampliado 3x para o mesmo tamanho)
-    if (!bakeHero(s, r)) [0, 1, 2, 3].forEach((f) => mk(`hero_${r}_${f}`, (g) => { g.scaleCanvas(3, 3); drawBot(g, BOTS[r], f); }, SPRITE_PX, SPRITE_PX));
+    [0, 1, 2, 3].forEach((f) => mk(`hero_${r}_${f}`, (g) => drawBot(g, BOTS[r], f)));
   });
 
   mk("bomb", (g) => {

@@ -1,13 +1,11 @@
 import Phaser from "phaser";
 import { RARITIES, Rarity, HeroData, store, addReward, mapState, track, levelMult, REWARD_SCALE, bombDamage } from "../state";
-import { makeTextures, preloadSprites, SPRITE_PX } from "../art";
+import { makeTextures } from "../art";
 import { MAPS, COLS, ROWS, MapDef } from "../maps";
 
 const T = 32;
-const SPR_SHOW = 64; // altura dos operadores em campo (px): 2 tiles
-const HERO_SCALE = SPR_SHOW / SPRITE_PX;
-const FEET = SPR_SHOW / 2 - 3; // do centro do sprite ate os pes
-const HERO_DY = -17; // pes na parte de baixo do tile; o corpo invade o tile de cima
+const HERO_SCALE = 1.5; // tamanho dos operadores em campo
+const HERO_DY = -13 * (HERO_SCALE - 1); // mantem os pes na mesma posicao do tile
 const BAR_W = 28;
 export const MAP_W = COLS * T;
 export const MAP_H = ROWS * T;
@@ -43,8 +41,6 @@ export class FarmScene extends Phaser.Scene {
 
   constructor() { super("farm"); }
 
-  preload() { preloadSprites(this); }
-
   create() {
     makeTextures(this);
     this.cameras.main.setScroll(-T, -T);
@@ -65,12 +61,12 @@ export class FarmScene extends Phaser.Scene {
     for (const h of this.heroes) {
       if (now >= h.nextAt) { h.nextAt = now + 450 / h.data.speed; this.tick(h); } // ritmo depende da velocidade atual
       const { x, y } = h.sprite;
-      h.barBg.setPosition(x, y - SPR_SHOW / 2 - 2);
-      h.barFg.setPosition(x - BAR_W / 2, y - SPR_SHOW / 2 - 2);
+      h.barBg.setPosition(x, y - 13 * HERO_SCALE - 6);
+      h.barFg.setPosition(x - BAR_W / 2, y - 13 * HERO_SCALE - 6);
       h.barFg.width = Math.max(0, BAR_W * (h.data.stamina / h.data.maxStamina));
-      h.zzz.setPosition(x + 6, y - SPR_SHOW / 2 - 14).setVisible(h.sleeping);
-      h.glow.setPosition(x, y + FEET);
-      h.sprite.setAlpha(h.sleeping ? 0.7 : 1).setDepth(4 + y / 10000); // quem esta mais abaixo fica na frente
+      h.zzz.setPosition(x + 6, y - 13 * HERO_SCALE - 20).setVisible(h.sleeping);
+      h.glow.setPosition(x, y + 9 * HERO_SCALE);
+      h.sprite.setAlpha(h.sleeping ? 0.7 : 1);
       if (h.sprite.anims.isPlaying && (h.sleeping || now - h.lastMove > (450 / h.data.speed) * 1.4)) {
         h.sprite.anims.stop();
         h.sprite.setTexture(`hero_${h.data.rarity}_0`);
@@ -140,8 +136,8 @@ export class FarmScene extends Phaser.Scene {
     const px = gx * T + T / 2, py = gy * T + T / 2;
     const sprite = this.add.sprite(px, py + HERO_DY, `hero_${data.rarity}_0`).setScale(HERO_SCALE).setDepth(4);
     sprite.anims.timeScale = data.speed;
-    const glow = this.add.image(px, py + FEET + HERO_DY, "glow").setTint(RARITIES[data.rarity].color).setBlendMode(Phaser.BlendModes.ADD)
-      .setScale(1.4, 0.45).setAlpha(0.6).setDepth(3.5);
+    const glow = this.add.image(px, py + 9 * HERO_SCALE + HERO_DY, "glow").setTint(RARITIES[data.rarity].color).setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(1.1 * HERO_SCALE, 0.5 * HERO_SCALE).setAlpha(0.6).setDepth(3.5);
     this.tweens.add({ targets: glow, alpha: 0.9, duration: 900, yoyo: true, repeat: -1 });
     const barBg = this.add.rectangle(0, 0, BAR_W + 2, 5, 0x000000, 0.65).setDepth(6);
     const barFg = this.add.rectangle(0, 0, BAR_W, 3, RARITIES[data.rarity].color).setOrigin(0, 0.5).setDepth(7);
