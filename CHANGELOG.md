@@ -2,6 +2,21 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.4.0] - 2026-10-15
+### Alterado
+- Identidade propria: "Herois" passam a se chamar **Operadores**; moeda do jogo **$BOMBERSI**; token do estudio **$ASG**.
+- Botao de saque agora "Cofre - Sacar" (prepara o Cofre de Recompensas).
+- Textos da interface, README e TOKENOMICS atualizados.
+### Adicionado
+- `docs/GLOSSARIO.md` com a tabela oficial de nomes do jogo.
+### Roadmap (etapas)
+- 1.4: nomenclatura e identidade (esta versao)
+- 1.5: hub com menu inferior
+- 1.6: Capsula de Recruta, colecao e roster
+- 1.7: Alojamentos, Droide Zelador, Enviar/Recolher todos
+- 1.8: Cofre de Recompensas (minimo, taxa, historico)
+- 2.0: Bolsa, Convites, Manual e Staking
+
 ## [1.3.0] - 2026-10-14
 ### Adicionado
 - Herois em campo no estilo chibi "bomber-bots" (cabecao, visor, moeda no peito), com o visual de cada carta NFT.

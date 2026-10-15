@@ -1,6 +1,7 @@
-# Bomber Idle (Solana) - v1.0.0
+# Bomber Idle (Solana) - v1.4.0
 
-Jogo idle/play-to-earn estilo grade com bombas, baus e herois NFT, na Solana.
+Jogo idle/play-to-earn estilo grade com bombas, baus e operadores NFT, na Solana.
+Moeda do jogo: **$BOMBERSI**. Token do estudio: **$ASG**. Veja [docs/GLOSSARIO.md](docs/GLOSSARIO.md).
 
 > **Status:** esqueleto inicial (MVP tecnico). Programa **nao auditado**. Nao use em mainnet.
 > Use arte, nome e personagens proprios. Nao copie assets de outros jogos.

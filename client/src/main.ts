@@ -59,7 +59,7 @@ function buildHeroes() {
     const li = el("li");
     const img = el("img");
     img.src = import.meta.env.BASE_URL + h.portrait;
-    img.alt = `Carta NFT de ${h.name}`;
+    img.alt = `Carta NFT do operador ${h.name}`;
     img.style.borderColor = r.css;
 
     const info = el("div");
@@ -85,7 +85,7 @@ function buildHeroes() {
     const ups = {} as Record<UpKey, HTMLButtonElement>;
     for (const u of UPS) {
       const b = el("button", "up");
-      b.onclick = () => toast(upgrade(h, u.key) ? `${h.name}: ${u.label} nível ${h.up[u.key]}` : "Pontos insuficientes ou nível máximo");
+      b.onclick = () => toast(upgrade(h, u.key) ? `${h.name}: ${u.label} nível ${h.up[u.key]}` : "$BOMBERSI insuficientes ou nível máximo");
       ups[u.key] = b;
       upsRow.append(b);
     }
@@ -110,7 +110,7 @@ function buildMissions() {
     bar.append(fill);
     const txt = el("div", "muted small");
     const btn = el("button", "up", "Resgatar");
-    btn.onclick = () => toast(claimMission(m.id) ? `+${m.reward} pontos resgatados` : "Missão ainda não concluída");
+    btn.onclick = () => toast(claimMission(m.id) ? `+${m.reward} $BOMBERSI resgatados` : "Missão ainda não concluída");
     const box = el("div");
     box.append(el("strong", "", `${m.label} · +${m.reward}`), bar, txt);
     li.append(box, btn);

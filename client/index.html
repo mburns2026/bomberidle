@@ -55,23 +55,23 @@
   </head>
   <body>
     <header>
-      <span class="title">Bomber Idle<span class="tag">v1.3.0 · <span id="mapname"></span></span></span>
-      <span class="stat" title="Pontos pendentes (teste)">
+      <span class="title">Bomber Idle<span class="tag">v1.4.0 · <span id="mapname"></span></span></span>
+      <span class="stat" title="$BOMBERSI pendentes (teste)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#2a1a0c"/><circle cx="12" cy="12" r="9.5" fill="#f2b632"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#b47a10" stroke-width="2"/><path d="M8 7h3v2H8z" fill="#fff6c8"/></svg>
-        <b id="pending">0.00</b>
+        <b id="pending">0.00</b><small style="color:var(--muted);font-weight:700">$BOMBERSI</small>
       </span>
       <span class="stat" title="Baús abertos">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="15" rx="2" fill="#2a1a0c"/><rect x="3.5" y="7.5" width="17" height="12" fill="#9c6b3a"/><rect x="3.5" y="7.5" width="17" height="3" fill="#c4915a"/><rect x="10.5" y="11" width="3" height="5" fill="#ffd24a"/></svg>
         <b id="chests">0</b>
       </span>
       <button id="connect">Conectar carteira</button>
-      <button id="claim" disabled>Sacar</button>
+      <button id="claim" disabled>Cofre · Sacar</button>
     </header>
     <main>
       <div id="game"></div>
       <aside>
         <nav class="tabs">
-          <button class="tab on" data-tab="heroes">Heróis</button>
+          <button class="tab on" data-tab="heroes">Operadores</button>
           <button class="tab" data-tab="missions">Missões</button>
           <button class="tab" data-tab="maps">Mapas</button>
         </nav>
@@ -81,12 +81,12 @@
         </section>
         <section id="tab-missions" hidden>
           <ul id="missions"></ul>
-          <p class="note">As missões reiniciam todo dia. Melhorias de herói gastam os pontos pendentes.</p>
+          <p class="note">As missões reiniciam todo dia. Melhorias de operador gastam os $BOMBERSI pendentes.</p>
         </section>
         <section id="tab-maps" hidden>
           <div id="maps" class="maps"></div>
         </section>
-        <p class="note">Os pontos são de teste e ficam salvos só neste navegador. O saque on-chain depende do servidor e do programa na devnet.</p>
+        <p class="note">Os $BOMBERSI daqui são de teste e ficam salvos só neste navegador. O saque on-chain depende do servidor e do programa na devnet.</p>
       </aside>
     </main>
     <div id="toast" role="status"></div>
