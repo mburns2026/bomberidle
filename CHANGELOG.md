@@ -2,6 +2,12 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.7.1] - 2026-10-15
+### Alterado
+- Os 6 personagens em campo agora usam os sprites PNG com fundo transparente (`client/public/sprites/`): Lyra (Comum), Titan (Raro), Vex (Epico), Kira (Mitico), Jax (Lendario) e Orion (Super lendario).
+- Operadores maiores em campo (64 px, dois tiles de altura), com aura na cor da raridade, quique e balanco ao andar, e ordem de sobreposicao por posicao (quem esta mais abaixo fica na frente).
+- Se um PNG nao carregar, o jogo usa o boneco desenhado por codigo como reserva.
+
 ## [1.7.0] - 2026-10-15
 ### Adicionado
 - **Baús com HP** por raridade: Comum 10, Raro 20, Épico 40, Mítico 80, Lendário 160, Super lendário 320. Os operadores agora atacam os baús (bomba ou golpe corpo a corpo); o dano fica acumulado, barra de vida aparece ao ser atingido e quem dá o golpe final leva a recompensa.
