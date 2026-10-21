@@ -7,7 +7,7 @@ import {
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, createAssociatedTokenAccountIdempotentInstruction } from "@solana/spl-token";
 
 const discriminator = (name: string) =>
   createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
@@ -25,6 +25,21 @@ export interface ClaimEnv {
   serverAuthority: Keypair;
 }
 
+const claimPda = (programId: PublicKey, user: PublicKey) =>
+  PublicKey.findProgramAddressSync([Buffer.from("claim"), user.toBuffer()], programId)[0];
+
+/**
+ * Ultimo nonce que o programa registrou para este jogador (0 se ele nunca sacou).
+ * Layout da conta UserClaim: 8 bytes de discriminador + user (32) + last_nonce (u64 LE).
+ * O servidor guarda o nonce so em memoria; sem consultar a cadeia, um reinicio faria
+ * todo saque falhar com InvalidNonce.
+ */
+export async function fetchLastNonce(env: ClaimEnv, user: PublicKey): Promise<bigint> {
+  const info = await env.connection.getAccountInfo(claimPda(env.programId, user));
+  if (!info || info.data.length < 8 + 32 + 8) return 0n;
+  return info.data.readBigUInt64LE(8 + 32);
+}
+
 /**
  * Monta a transacao de claim ja assinada pelo servidor.
  * O jogador so precisa assinar e enviar (ele paga as taxas).
@@ -38,10 +53,7 @@ export async function buildClaimTx(
   const { programId, rewardMint, serverAuthority, connection } = env;
   const [config] = PublicKey.findProgramAddressSync([Buffer.from("config")], programId);
   const [vault] = PublicKey.findProgramAddressSync([Buffer.from("vault")], programId);
-  const [userClaim] = PublicKey.findProgramAddressSync(
-    [Buffer.from("claim"), user.toBuffer()],
-    programId
-  );
+  const userClaim = claimPda(programId, user);
   const userToken = getAssociatedTokenAddressSync(rewardMint, user);
 
   // A ordem das contas deve seguir a struct `Claim` do programa.
@@ -60,8 +72,11 @@ export async function buildClaimTx(
     data: Buffer.concat([discriminator("claim"), u64(amount), u64(nonce)]),
   });
 
+  // Cria a conta de token do jogador se ela ainda nao existir (idempotente); sem isso o primeiro saque falha.
+  const createAta = createAssociatedTokenAccountIdempotentInstruction(user, userToken, user, rewardMint);
+
   const { blockhash } = await connection.getLatestBlockhash();
-  const tx = new Transaction({ feePayer: user, recentBlockhash: blockhash }).add(ix);
+  const tx = new Transaction({ feePayer: user, recentBlockhash: blockhash }).add(createAta, ix);
   tx.partialSign(serverAuthority);
   return tx.serialize({ requireAllSignatures: false }).toString("base64");
 }
