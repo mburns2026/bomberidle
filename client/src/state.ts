@@ -1,3 +1,5 @@
+import { MAPS, INSTANCES_PER_MAP } from "./maps";
+
 export type Rarity = "common" | "rare" | "epic" | "mythic" | "legendary" | "super";
 
 // chest = valor base do bau dessa raridade; hp = vida do bau (quanto mais raro, mais dificil); mult = multiplicador do operador dessa raridade
@@ -64,13 +66,14 @@ export const UP_MAX = 10;
 const MAX_LEVEL = 30;
 
 interface Daily { day: string; blocks: number; bombs: number; chests: number; maps: string[]; claimed: string[] }
-interface SavedOp { r: Rarity; n: number; xp: number; lv: number; up: { stamina: number; speed: number; luck: number }; j: Jitter; w?: 1 }
+interface SavedOp { r: Rarity; n: number; xp: number; lv: number; up: { stamina: number; speed: number; luck: number }; j: Jitter; w?: 1; s?: number }
+interface SavedMap { i: number; n: number; a: boolean; r?: { i: number; n: number } } // indice, instancia, auto, ponto para retomar o Auto
 interface Saved {
   pending: number; chests: number;
   owned?: SavedOp[]; serial?: number; wk?: boolean;
   lodging?: Record<LodgeKind, number>; butler?: { owned: boolean; on: boolean };
   heroes?: Record<string, { xp: number; level: number; up: { stamina: number; speed: number; luck: number } }>; // formato antigo (<1.6)
-  daily?: Daily;
+  daily?: Daily; map?: SavedMap;
 }
 
 const KEY = "bomber-idle:v1"; // mesma chave: saves antigos continuam validos
@@ -83,7 +86,11 @@ function load(): Saved | null {
   }
 }
 const saved = load();
-const today = () => new Date().toISOString().slice(0, 10);
+// Dia no fuso do jogador (antes usava UTC: no Brasil as missoes reiniciavam as 21h).
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 const freshDaily = (): Daily => ({ day: today(), blocks: 0, bombs: 0, chests: 0, maps: [], claimed: [] });
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -126,7 +133,12 @@ function build(r: Rarity, n: number, j: Jitter, lv = 1, xp = 0, up = { stamina: 
 }
 
 function initialOwned(): HeroData[] {
-  if (saved?.owned?.length) return saved.owned.map((o) => build(o.r, o.n, o.j, o.lv, o.xp, o.up));
+  if (saved?.owned?.length)
+    return saved.owned.map((o) => {
+      const h = build(o.r, o.n, o.j, o.lv, o.xp, o.up);
+      if (typeof o.s === "number" && o.s >= 0) h.stamina = Math.min(h.maxStamina, o.s); // recarregar a pagina nao enche mais a stamina
+      return h;
+    });
   if (saved?.heroes) {
     // migracao: os 6 operadores fixos das versoes anteriores viram operadores #1..#6 com o progresso preservado
     const out: HeroData[] = [];
@@ -141,6 +153,18 @@ function initialOwned(): HeroData[] {
 
 const owned = initialOwned();
 const workingIds = new Set<string>(saved?.wk ? (saved.owned ?? []).filter((o) => o.w).map((o) => `op${o.n}`) : []);
+
+/** Estado de selecao de mapa: "auto" avanca para a proxima instancia (e troca de mapa a cada 33) ao limpar a atual.
+ *  `resume` guarda onde o Auto estava quando o jogador escolheu um mapa na mao, para nao perder o progresso. */
+const validMap = (m?: SavedMap) => !!m && Number.isInteger(m.i) && Number.isInteger(m.n) && m.i >= 0 && m.i < MAPS.length && m.n >= 1 && m.n <= INSTANCES_PER_MAP;
+export const mapState = {
+  index: validMap(saved?.map) ? saved!.map!.i : 0,
+  instance: validMap(saved?.map) ? saved!.map!.n : 1,
+  auto: validMap(saved?.map) ? saved!.map!.a : true,
+  request: null as number | null,
+  requestInstance: null as number | null, // instancia a abrir junto com `request` (null = 1)
+  resume: saved?.map?.r && validMap({ ...saved.map.r, a: true }) ? { i: saved.map.r.i, n: saved.map.r.n } : (null as { i: number; n: number } | null),
+};
 
 export const store = {
   pending: saved ? saved.pending ?? 0 : START_BALANCE, // $BOMBERSI de teste (ainda sem blockchain)
@@ -165,7 +189,6 @@ function syncWorking() {
   const list = sortOps(store.collection.filter((h) => workingIds.has(h.id)));
   store.heroes.length = 0;
   store.heroes.push(...list);
-  store.version++;
 }
 /** Preenche as vagas livres com os melhores operadores descansados (stamina >= 30%). */
 export function fillSlots(): number {
@@ -182,13 +205,16 @@ function persist() {
     localStorage.setItem(KEY, JSON.stringify({
       pending: store.pending, chests: store.chests, daily: store.daily, serial: store.serial,
       wk: true, lodging: store.lodging, butler: store.butler,
-      owned: store.collection.map((h): SavedOp => ({ r: h.rarity, n: h.serial, xp: h.xp, lv: h.level, up: h.up, j: h.jitter, ...(workingIds.has(h.id) ? { w: 1 as const } : {}) })),
+      owned: store.collection.map((h): SavedOp => ({ r: h.rarity, n: h.serial, xp: h.xp, lv: h.level, up: h.up, j: h.jitter, ...(workingIds.has(h.id) ? { w: 1 as const } : {}), s: r2(h.stamina) })),
+      map: { i: mapState.index, n: mapState.instance, a: mapState.auto, ...(mapState.resume ? { r: mapState.resume } : {}) } as SavedMap,
     }));
   } catch {
     /* sem storage: ignora */
   }
 }
 persist(); // grava ja no formato novo (migracao)
+/** Salva agora (usado em intervalos e ao fechar/esconder a pagina). */
+export const saveNow = () => persist();
 const ensureDay = () => { if (store.daily.day !== today()) store.daily = freshDaily(); };
 
 /** Bau aberto: soma $BOMBERSI, XP do operador e progresso das missoes. */
@@ -207,7 +233,7 @@ const bump = () => { if (++ticks % 10 === 0) persist(); };
 export const track = {
   block() { ensureDay(); store.daily.blocks++; bump(); },
   bomb() { ensureDay(); store.daily.bombs++; bump(); },
-  map(id: string) { ensureDay(); if (!store.daily.maps.includes(id)) { store.daily.maps.push(id); persist(); } },
+  map(id: string) { ensureDay(); if (!store.daily.maps.includes(id)) store.daily.maps.push(id); persist(); }, // salva a cada troca de instancia/mapa
 };
 
 // ---------- Capsula de Recruta ----------
@@ -226,6 +252,7 @@ export function buyCapsule(count: number): HeroData[] | string {
   const fresh: HeroData[] = [];
   for (let i = 0; i < count; i++) fresh.push(build(rollCapsule(), store.serial++, rollJitter()));
   store.collection.push(...fresh);
+  store.version++; // a lista de operadores precisa ser refeita
   fillSlots();
   persist();
   return fresh;
@@ -314,7 +341,7 @@ export function missionProgress(m: (typeof MISSIONS)[number]): number {
   ensureDay();
   return m.stat === "maps" ? store.daily.maps.length : store.daily[m.stat];
 }
-export const missionClaimed = (id: string) => store.daily.claimed.includes(id);
+export const missionClaimed = (id: string) => { ensureDay(); return store.daily.claimed.includes(id); };
 export function claimMission(id: string): boolean {
   const m = MISSIONS.find((x) => x.id === id);
   if (!m || missionClaimed(id) || missionProgress(m) < m.goal) return false;
@@ -328,8 +355,6 @@ export function refillAll() {
   store.collection.forEach((h) => (h.stamina = h.maxStamina));
 }
 
-/** Estado de selecao de mapa: "auto" avanca para a proxima instancia (e troca de mapa a cada 33) ao limpar a atual. */
-export const mapState = { index: 0, instance: 1, auto: true, request: null as number | null };
 
 /** Recompensa por derrotar um inimigo (bonus fora do fluxo de baus: nao soma em store.chests/missoes). */
 export function addEnemyReward(value: number, h: HeroData) {

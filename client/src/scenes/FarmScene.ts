@@ -307,7 +307,8 @@ export class FarmScene extends Phaser.Scene {
     if (mapState.request !== null) {
       mapState.index = mapState.request;
       mapState.request = null;
-      mapState.instance = 1; // troca manual de mapa sempre comeca na instancia 1
+      mapState.instance = mapState.requestInstance ?? 1; // troca manual comeca na instancia 1; "Auto" retoma de onde parou
+      mapState.requestInstance = null;
       this.idle = 0;
       this.cameras.main.flash(300, 255, 255, 255, false);
       this.buildMap();

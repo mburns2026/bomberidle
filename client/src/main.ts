@@ -3,7 +3,7 @@ import { FarmScene, GAME_W, GAME_H } from "./scenes/FarmScene";
 import {
   RARITIES, RARITY_ORDER, Rarity, HeroData, store, refillAll, mapState, MISSIONS, missionProgress, missionClaimed, claimMission,
   upgrade, upgradeCost, UP_MAX, xpInfo, UpKey, sortOps, buyCapsule, CAPSULE_PRICE, CAPSULE_ODDS, MAX_COLLECTION, MAX_WORKING,
-  isWorking, setWorking, workAll, restAll, buyLodging, buyButler, toggleButler, economyTick, LODGING, LodgeKind, BUTLER_PRICE, OUTSIDE_RATE, MAX_LODGINGS,
+  isWorking, setWorking, workAll, restAll, buyLodging, buyButler, toggleButler, economyTick, LODGING, LodgeKind, BUTLER_PRICE, OUTSIDE_RATE, MAX_LODGINGS, saveNow, START_BALANCE,
 } from "./state";
 import { MAPS, INSTANCES_PER_MAP } from "./maps";
 import { connect, requestClaim } from "./wallet";
@@ -57,6 +57,8 @@ const refs = new Map<string, HeroRef>();
 
 let builtVersion = -1;
 let filter: Rarity | "all" = "all";
+const PAGE = 30; // linhas por vez: com 500 operadores a lista inteira deixava a pagina pesada
+let shownLimit = PAGE;
 function buildHeroes() {
   builtVersion = store.version;
   const list = $("heroes");
@@ -66,12 +68,13 @@ function buildHeroes() {
   fbox.replaceChildren();
   const chip = (label: string, key: Rarity | "all", n: number) => {
     const b = el("button", "chip" + (filter === key ? " on" : ""), `${label} (${n})`);
-    b.onclick = () => { filter = key; buildHeroes(); };
+    b.onclick = () => { filter = key; shownLimit = PAGE; buildHeroes(); };
     fbox.append(b);
   };
   chip("Todos", "all", store.collection.length);
   RARITY_ORDER.forEach((r) => chip(RARITIES[r].label, r, store.collection.filter((h) => h.rarity === r).length));
-  const shown = sortOps(store.collection).filter((h) => filter === "all" || h.rarity === filter);
+  const all = sortOps(store.collection).filter((h) => filter === "all" || h.rarity === filter);
+  const shown = all.slice(0, shownLimit);
   if (!shown.length) list.append(el("li", "muted small", "Nenhum operador desta raridade ainda."));
   for (const h of shown) {
     const r = RARITIES[h.rarity];
@@ -117,6 +120,14 @@ function buildHeroes() {
     list.append(li);
     refs.set(h.id, { lvl, xp, fill, st, work, ups });
   }
+  if (all.length > shown.length) {
+    const more = el("button", "chip", `Mostrar mais (${all.length - shown.length})`);
+    more.onclick = () => { shownLimit += PAGE; buildHeroes(); };
+    const wrap = el("li");
+    wrap.style.gridTemplateColumns = "1fr";
+    wrap.append(more);
+    list.append(wrap);
+  }
 }
 buildHeroes();
 
@@ -132,9 +143,9 @@ function buildMissions() {
     bar.append(fill);
     const txt = el("div", "muted small");
     const btn = el("button", "up", "Resgatar");
-    btn.onclick = () => toast(claimMission(m.id) ? `+${m.reward} $BOMBERSI resgatados` : "Missão ainda não concluída");
+    btn.onclick = () => toast(claimMission(m.id) ? `+${fmt(m.reward)} $BOMBERSI resgatados` : "Missão ainda não concluída");
     const box = el("div");
-    box.append(el("strong", "", `${m.label} · +${m.reward}`), bar, txt);
+    box.append(el("strong", "", `${m.label} · +${fmt(m.reward)}`), bar, txt);
     li.append(box, btn);
     list.append(li);
     mRefs.set(m.id, { fill, txt, btn });
@@ -152,8 +163,20 @@ function buildMaps() {
     box.append(b);
     mapBtns.push(b);
   };
-  add("Auto", () => { mapState.auto = true; });
-  MAPS.forEach((m, i) => add(m.name, () => { mapState.auto = false; mapState.request = i; }));
+  add("Auto", () => {
+    if (!mapState.auto && mapState.resume) { // volta para onde o Auto estava antes da escolha manual
+      mapState.request = mapState.resume.i;
+      mapState.requestInstance = mapState.resume.n;
+      mapState.resume = null;
+    }
+    mapState.auto = true;
+  });
+  MAPS.forEach((m, i) => add(m.name, () => {
+    if (mapState.auto) mapState.resume = { i: mapState.index, n: mapState.instance }; // guarda o progresso do Auto
+    mapState.auto = false;
+    mapState.request = i;
+    mapState.requestInstance = null;
+  }));
 }
 buildMaps();
 
@@ -166,7 +189,7 @@ function render() {
 
   if (builtVersion !== store.version) buildHeroes();
   const working = new Set(store.heroes);
-  $("hero-info").textContent = `${store.collection.length}/${MAX_COLLECTION} operadores · ${working.size}/${MAX_WORKING} trabalhando${store.butler.owned ? ` · Zelador ${store.butler.on ? "ligado" : "desligado"}` : ""}`;
+  $("hero-info").textContent = `${store.collection.length}/${MAX_COLLECTION} operadores · ${working.size}/${MAX_WORKING} trabalhando${store.butler.owned ? ` · Zelador ${store.butler.on ? "ligado" : "desligado"}` : ""}${working.size === 0 && store.collection.length ? " · Ninguém em campo: use Enviar todos" : ""}`;
   for (const h of store.collection) {
     const ref = refs.get(h.id);
     if (!ref) continue;
@@ -199,8 +222,18 @@ function render() {
 render();
 setInterval(render, 400);
 setInterval(economyTick, 1000);
+setInterval(saveNow, 10000); // stamina e posicao no mapa tambem ficam salvas
+addEventListener("pagehide", saveNow);
+document.addEventListener("visibilitychange", () => { if (document.hidden) saveNow(); });
 $("work-all").onclick = () => { const n = workAll(); toast(n ? `${n} operador(es) enviados ao trabalho` : "Nenhuma vaga livre ou ninguém com 30%+ de stamina"); };
 $("rest-all").onclick = () => { const n = restAll(); toast(n ? `${n} operador(es) recolhidos para descansar` : "Ninguém estava trabalhando"); };
+
+try {
+  if (!localStorage.getItem("bomber-idle:seen")) {
+    localStorage.setItem("bomber-idle:seen", "1");
+    toast(`Bem-vindo! Você começa com 1 operador e ${fmt(START_BALANCE)} $BOMBERSI: abra suas cápsulas no menu de baixo.`);
+  }
+} catch { /* sem storage: ignora */ }
 
 $("refill").onclick = () => { refillAll(); toast("Stamina recarregada (modo teste)"); };
 
@@ -215,6 +248,8 @@ $("connect").onclick = async () => {
 };
 
 $("claim").onclick = async () => {
+  const btn = $("claim") as HTMLButtonElement;
+  btn.disabled = true;
   try {
     const { transaction } = await requestClaim(wallet);
     const { Transaction } = await import("@solana/web3.js");
@@ -222,7 +257,12 @@ $("claim").onclick = async () => {
     const { signature } = await (window as any).solana.signAndSendTransaction(tx);
     toast(`Saque enviado: ${signature.slice(0, 12)}…`);
   } catch (e) {
-    toast("Saque indisponível: o servidor on-chain ainda não está no ar.");
+    const msg = e instanceof Error ? e.message : "";
+    if (/reject|denied|cancel/i.test(msg)) toast("Saque cancelado na carteira.");
+    else if (e instanceof TypeError) toast("Servidor indisponível: o saque on-chain ainda não está no ar.");
+    else toast(msg ? `Saque indisponível: ${msg}` : "Saque indisponível no momento.");
+  } finally {
+    btn.disabled = !wallet;
   }
 };
 
@@ -236,6 +276,7 @@ function openModal(title: string, build: (body: HTMLElement) => void, live?: () 
   build(modalBody);
   liveUpdate = live ?? null;
   modal.hidden = false;
+  liveUpdate?.(); // evita o modal abrir com valores vazios por 400 ms
 }
 $("modal-close").onclick = closeModal;
 modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
@@ -404,18 +445,25 @@ const HUB: Record<string, () => void> = {
       body.append(ol);
     };
     sec("Como funciona", [
-      "Seus operadores entram em expedição automaticamente: andam pelo mapa, plantam bombas e abrem baús.",
-      "Cada bomba gasta stamina. Sem stamina, o operador descansa e volta quando se recupera.",
+      "Seus operadores entram em expedição automaticamente: andam pelo mapa, plantam bombas, quebram blocos e abrem baús.",
+      "Cada bomba gasta stamina. Sem stamina, o operador dorme e volta quando se recupera.",
       "Os baús têm vida (HP): quanto mais raro, mais bombas são necessárias para abri-lo. Quem dá o golpe final leva a recompensa.",
-      "Os baús rendem $BOMBERSI. Quanto mais rara a caixa e o operador, maior o ganho.",
-      "Use os $BOMBERSI para melhorar Stamina, Velocidade e Sorte de cada operador.",
+      "Inimigos vagam pelo mapa e também pagam $BOMBERSI (e XP) a quem os derrotar. Na última instância de cada mapa aparece um MVP, bem mais forte e que paga muito mais.",
+      "Use os $BOMBERSI para melhorar Stamina, Velocidade e Sorte de cada operador, ou para abrir Cápsulas de Recruta.",
+    ]);
+    sec("Mapas e instâncias", [
+      "São 50 mapas, cada um com 33 instâncias. A cada instância limpa o jogo avança sozinho (modo Auto).",
+      "Quanto mais longe, mais HP têm blocos, baús e inimigos, e maior a chance de um bloco soltar baú.",
+      "Escolher um mapa na mão não apaga o progresso: o botão Auto volta para a instância em que você estava.",
+      "O mapa, a instância e a stamina ficam salvos neste navegador.",
     ]);
     sec("Bom saber", [
-      "Operadores só trabalham com o jogo aberto: não há mineração offline.",
-      "Missões diárias reiniciam todo dia e pagam $BOMBERSI.",
-      "Cinco mapas com biomas diferentes; o modo Auto avança sozinho.",
-      "Operadores sobem de nível com XP ganho nos baús (até o nível 30).",
+      "Operadores só trabalham com o jogo aberto e visível: não há mineração offline.",
+      "Missões diárias reiniciam à meia-noite (horário do seu aparelho) e pagam $BOMBERSI.",
+      "Operadores sobem de nível com XP ganho nos baús e inimigos (até o nível 30).",
       "No máximo 15 operadores trabalham ao mesmo tempo. Use Enviar todos e Recolher todos, ou o Droide Zelador para automatizar.",
+      "Dica: sem Alojamento, quem está na reserva recupera só 6 stamina por minuto. Compre um Casulo antes do Droide Zelador.",
+      "Dica: ter mais de 15 operadores só compensa com Zelador e Alojamentos, para revezar quem está cansado.",
     ]);
   }),
   settings: () => openModal("Configurações", (body) => {
