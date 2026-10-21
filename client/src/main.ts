@@ -5,7 +5,7 @@ import {
   upgrade, upgradeCost, UP_MAX, xpInfo, UpKey, sortOps, buyCapsule, CAPSULE_PRICE, CAPSULE_ODDS, MAX_COLLECTION, MAX_WORKING,
   isWorking, setWorking, workAll, restAll, buyLodging, buyButler, toggleButler, economyTick, LODGING, LodgeKind, BUTLER_PRICE, OUTSIDE_RATE, MAX_LODGINGS,
 } from "./state";
-import { MAPS } from "./maps";
+import { MAPS, INSTANCES_PER_MAP } from "./maps";
 import { connect, requestClaim } from "./wallet";
 
 new Phaser.Game({
@@ -160,7 +160,7 @@ buildMaps();
 function render() {
   $("pending").textContent = fmt(store.pending);
   $("chests").textContent = String(store.chests);
-  $("mapname").textContent = MAPS[mapState.index].name;
+  $("mapname").textContent = `${MAPS[mapState.index].name} · Instância ${mapState.instance}/${INSTANCES_PER_MAP}`;
   const target = mapState.request ?? mapState.index;
   mapBtns.forEach((b, i) => b.classList.toggle("on", i === 0 ? mapState.auto : !mapState.auto && target === i - 1));
 
