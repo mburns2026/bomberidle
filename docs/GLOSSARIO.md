@@ -23,6 +23,9 @@ Todos os nomes do Bomber Idle são próprios. Esta tabela é a referência para 
 | Manual | Guia do jogo dentro do app |
 | Resgates | Operadores ganhos por convites ou missões |
 | Enviar todos / Recolher todos | Colocar todos para trabalhar / mandar todos descansar |
+| Instância | Uma "fase" de um mapa (1 a 33). Ao limpar, o Auto avança para a próxima; HP e drop crescem a cada uma |
+| Inimigo | Criatura que vaga pelo mapa; quem dá o golpe final ganha $BOMBERSI e XP (não conta nas missões de baú) |
+| MVP | Inimigo-chefe, só na instância 33 de cada mapa: 5x o HP de um inimigo comum e recompensa maior |
 
 ## Raridades
 Comum, Raro, Épico, Mítico, Lendário, Super lendário.
@@ -63,3 +66,18 @@ Os valores ficam em `client/src/state.ts` (seção "economia").
 | Super lendário | 320 | 32 / 18 |
 
 Ajuste o HP em `RARITIES` e o dano em `bombDamage`, ambos em `client/src/state.ts`.
+
+## Mapas, instâncias e dificuldade (v1.7.1, valores em `client/src/maps.ts`)
+| Item | Início (mapa 1, inst. 1) | Fim (mapa 50, inst. 33) |
+|---|---|---|
+| Chance de um bloco soltar baú | 5% | 55% |
+| HP do bloco | 10 | 89 |
+| HP do inimigo comum | 20 | 148 |
+| HP do MVP | 100 | 740 |
+| Inimigos por instância | 2 | 6 |
+| Recompensa do inimigo comum | 600 | 1.200 |
+
+O HP acompanha o dano esperado de um operador no ponto da progressão, então o número de bombas por alvo fica parecido ao longo do jogo; o que cresce de verdade é a chance de baú.
+
+## Salvamento (v1.7.1)
+Ficam no `localStorage` (`bomber-idle:v1`): saldo, operadores (nível, XP, melhorias, stamina, quem está trabalhando), alojamentos, Zelador, missões do dia, mapa/instância/Auto. Missões reiniciam à meia-noite do aparelho.
