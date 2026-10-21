@@ -328,5 +328,13 @@ export function refillAll() {
   store.collection.forEach((h) => (h.stamina = h.maxStamina));
 }
 
-/** Estado de selecao de mapa: "auto" avanca para o proximo mapa ao limpar o atual. */
-export const mapState = { index: 0, auto: true, request: null as number | null };
+/** Estado de selecao de mapa: "auto" avanca para a proxima instancia (e troca de mapa a cada 33) ao limpar a atual. */
+export const mapState = { index: 0, instance: 1, auto: true, request: null as number | null };
+
+/** Recompensa por derrotar um inimigo (bonus fora do fluxo de baus: nao soma em store.chests/missoes). */
+export function addEnemyReward(value: number, h: HeroData) {
+  store.pending = r2(store.pending + value);
+  h.xp += Math.round(3 + value * 0.02);
+  while (h.level < MAX_LEVEL && h.xp >= xpNeed(h.level)) { h.xp -= xpNeed(h.level); h.level++; applyStats(h); }
+  persist();
+}
