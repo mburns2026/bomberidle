@@ -1,11 +1,15 @@
 {
   "name": "bomber-idle-solana",
   "private": true,
-  "version": "1.7.0",
-  "workspaces": ["server", "client"],
+  "version": "1.7.1",
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
     "dev:server": "npm run dev -w server",
     "dev:client": "npm run dev -w client",
-    "build": "npm run build -w server && npm run build -w client"
+    "build": "npm run build -w server && npm run build -w client",
+    "test": "npm test -w server && npm test -w client"
   }
 }

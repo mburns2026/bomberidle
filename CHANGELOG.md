@@ -2,6 +2,40 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.7.1] - 2026-10-21
+Revisão geral: correções, testes e documentação. Veja os detalhes e o que ainda falta em [docs/REVISAO-1.7.1.md](docs/REVISAO-1.7.1.md).
+### Corrigido
+- **Progresso do mapa se perdia ao recarregar a página**: mapa, instância e modo Auto agora ficam salvos (são 50 mapas x 33 instâncias, e a dificuldade e o drop dependem disso).
+- **Stamina voltava cheia ao recarregar**: agora é salva junto com o operador.
+- **Missões diárias reiniciavam às 21h no Brasil** (usavam a data UTC): agora usam a data do aparelho.
+- **A lista de operadores pulava e perdia o scroll** sempre que alguém ia trabalhar/descansar (o Zelador fazia isso a cada poucos segundos). Ela só é refeita quando a coleção muda.
+- **Escolher um mapa na mão apagava o progresso do Auto**: o botão Auto agora volta para a instância em que você estava.
+- Cápsulas apareciam como "em breve" no menu mesmo estando disponíveis desde a 1.6.0.
+- Manual dizia "cinco mapas" e não citava inimigos, MVP nem instâncias; textos atualizados.
+- Janelas (Cápsulas, Alojamentos, Cofre) abriam por um instante com valores vazios.
+- Contador de $BOMBERSI começava em "0.00" mas o jogo usa números inteiros.
+- Botão de saque escondia o motivo real da falha atrás de uma mensagem única; agora distingue cancelamento, servidor fora do ar e erro do servidor.
+- **Deploy no GitHub Pages**: o `base` do Vite era fixo (`/bomber-idle/`), então o site publicado ficava em branco se o repositório tivesse outro nome. O workflow agora define `VITE_BASE` pelo nome do repositório.
+- `README` mandava copiar `server/.env.example`, que não existia.
+### Segurança (servidor)
+- **`/claim` não exigia prova de posse da carteira**: qualquer pessoa podia pedir o saque da carteira de outra e zerar o saldo pendente dela. Agora a carteira assina uma mensagem com data/hora (`signMessage`) e o servidor valida (`server/src/auth.ts`).
+- Saque perdido: se o jogador não assinasse/enviasse a transação, o saldo reservado sumia. Agora a reserva é mantida e a mesma transação (mesmo valor e nonce) é reconstruída no próximo pedido.
+- Reiniciar o servidor zerava o nonce em memória e todo saque passava a falhar (`InvalidNonce`). Agora o nonce é lido da cadeia (`UserClaim.last_nonce`).
+- Primeiro saque falhava quando o jogador não tinha conta de token: a transação agora cria a conta (idempotente).
+- Saques maiores que o `max_claim` do programa falhavam on-chain depois de o saldo já ter sido zerado: o servidor agora divide em vários (`MAX_CLAIM`).
+- Limite de requisições por IP, corpo de requisição limitado a 10 kB, CORS configurável (`CORS_ORIGIN`) e erro interno sem vazar detalhes.
+### Adicionado
+- Testes automatizados (`npm test`): assinatura do saque, save/load, data local, cápsulas, mapas. Rodam no CI e antes do deploy.
+- Lista de operadores paginada (30 por vez): com 500 operadores a página inteira era construída de uma vez.
+- Aviso quando nenhum operador está em campo e mensagem de boas-vindas na primeira visita.
+- Salvamento a cada 10 s e ao esconder/fechar a página.
+- `.gitignore` (inclui `.env` e `keys/`), `server/.env.example`, `package-lock.json`.
+- O Phaser agora é um arquivo separado no build (cache entre versões).
+### Documentado (já estava no código, faltava aqui)
+- **50 mapas x 33 instâncias** (1.650 etapas). Cada etapa aumenta o HP de blocos, baús e inimigos e a chance de um bloco soltar baú (5% no início, 55% no fim).
+- **Inimigos** que vagam pelo mapa e pagam $BOMBERSI e XP; **MVP** na instância 33 de cada mapa. O mapa só avança quando não restam blocos, baús nem inimigos.
+- Detalhes na seção de balanceamento do glossário.
+
 ## [1.7.0] - 2026-10-15
 ### Adicionado
 - **Baús com HP** por raridade: Comum 10, Raro 20, Épico 40, Mítico 80, Lendário 160, Super lendário 320. Os operadores agora atacam os baús (bomba ou golpe corpo a corpo); o dano fica acumulado, barra de vida aparece ao ser atingido e quem dá o golpe final leva a recompensa.
