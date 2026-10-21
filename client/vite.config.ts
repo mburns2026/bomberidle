@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 
-// "base" deve ser o nome do repositorio no GitHub Pages: /NOME-DO-REPO/
+// "base" = pasta do jogo dentro do site AI Studios Games: /bomber-idle/
 export default defineConfig({
-  base: "/bomberidle/",
+  base: "/bomber-idle/",
 });
