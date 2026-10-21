@@ -47,7 +47,6 @@ export class FarmScene extends Phaser.Scene {
   private curChestHpMult = 1;   // multiplicador de HP dos baus (mapa + instancia)
   private blocksHp = new Map<string, BlockState>(); // HP de cada bloco destrutivel do mapa atual
   private enemies: Enemy[] = [];
-  private dropChance = 0.3; // chance de bau por bloco quebrado, recalculada por mapa em buildMap()
   private ambient?: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor() { super("farm"); }
