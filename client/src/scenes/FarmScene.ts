@@ -1,7 +1,7 @@
 import Phaser from "phaser";
-import { RARITIES, Rarity, HeroData, store, addReward, mapState, track, levelMult, REWARD_SCALE, bombDamage } from "../state";
+import { RARITIES, Rarity, HeroData, store, addReward, addEnemyReward, mapState, track, levelMult, REWARD_SCALE, bombDamage } from "../state";
 import { makeTextures } from "../art";
-import { MAPS, COLS, ROWS, MapDef } from "../maps";
+import { MAPS, COLS, ROWS, MapDef, INSTANCES_PER_MAP, chestDropChance, blockHp, chestHpMult, enemyHp, mvpHp, hasMvp, mapProgress } from "../maps";
 
 const T = 32;
 const HERO_SCALE = 1.5; // tamanho dos operadores em campo
@@ -25,6 +25,12 @@ interface Runtime {
 }
 interface Bomb { gx: number; gy: number; range: number; luck: number; dmg: number; owner: HeroData; sprite: Phaser.GameObjects.Image }
 interface Chest { sprite: Phaser.GameObjects.Image; rarity: Rarity; hp: number; maxHp: number; barBg: Phaser.GameObjects.Rectangle; barFg: Phaser.GameObjects.Rectangle }
+interface BlockState { hp: number; maxHp: number; barBg?: Phaser.GameObjects.Rectangle; barFg?: Phaser.GameObjects.Rectangle }
+interface Enemy {
+  gx: number; gy: number; hp: number; maxHp: number; mvp: boolean; reward: number;
+  sprite: Phaser.GameObjects.Image; barBg: Phaser.GameObjects.Rectangle; barFg: Phaser.GameObjects.Rectangle;
+  nextMoveAt: number;
+}
 
 /** Mapa em grade com varios biomas: herois autonomos minerando blocos, abrindo baus e gastando stamina. */
 export class FarmScene extends Phaser.Scene {
@@ -37,12 +43,18 @@ export class FarmScene extends Phaser.Scene {
   private heroes: Runtime[] = [];
   private idle = 0;
   private map!: MapDef;
+  private dropChance = 0.3;     // chance de bau por bloco quebrado (mapa + instancia)
+  private curChestHpMult = 1;   // multiplicador de HP dos baus (mapa + instancia)
+  private blocksHp = new Map<string, BlockState>(); // HP de cada bloco destrutivel do mapa atual
+  private enemies: Enemy[] = [];
+  private dropChance = 0.3; // chance de bau por bloco quebrado, recalculada por mapa em buildMap()
   private ambient?: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor() { super("farm"); }
 
   create() {
     makeTextures(this);
+    this.makeEnemyTextures();
     this.cameras.main.setScroll(-T, -T);
     try { if (this.renderer.type === Phaser.WEBGL) this.cameras.main.postFX.addVignette(0.5, 0.5, 0.95, 0.3); } catch { /* sem WebGL */ }
 
@@ -72,11 +84,18 @@ export class FarmScene extends Phaser.Scene {
         h.sprite.setTexture(`hero_${h.data.rarity}_0`);
       }
     }
+    this.tickEnemies();
+    for (const e of this.enemies) {
+      e.barBg.setPosition(e.sprite.x, e.sprite.y - 17);
+      e.barFg.setPosition(e.sprite.x - 13, e.sprite.y - 17);
+    }
   }
 
   // ---------- mapa ----------
   private buildMap() {
     const m = (this.map = MAPS[mapState.index]);
+    this.dropChance = chestDropChance(mapState.index, mapState.instance);
+    this.curChestHpMult = chestHpMult(mapState.index, mapState.instance);
     track.map(m.id);
     this.mapObjs.forEach((o) => { this.tweens.killTweensOf(o); o.destroy(); });
     this.mapObjs = [];
@@ -84,6 +103,9 @@ export class FarmScene extends Phaser.Scene {
     this.chests.clear();
     this.bombs.forEach((b) => { this.tweens.killTweensOf(b.sprite); b.sprite.destroy(); });
     this.bombs.clear();
+    this.enemies.forEach((e) => this.destroyEnemy(e));
+    this.enemies = [];
+    this.blocksHp.clear();
     this.ambient?.destroy();
     this.blocksLeft = 0;
 
@@ -119,9 +141,16 @@ export class FarmScene extends Phaser.Scene {
           this.blockSprites[y][x] = s;
           this.mapObjs.push(s);
           this.blocksLeft++;
+          const maxHp = blockHp(mapState.index, mapState.instance);
+          const barBg = this.add.rectangle(px, py - T / 2 + 3, 22, 4, 0x000000, 0.7).setDepth(6).setVisible(false);
+          const barFg = this.add.rectangle(px - 11, py - T / 2 + 3, 22, 2, 0xff9a4a).setOrigin(0, 0.5).setDepth(7).setVisible(false);
+          this.mapObjs.push(barBg, barFg);
+          this.blocksHp.set(key(x, y), { hp: maxHp, maxHp, barBg, barFg });
         }
       }
     }
+
+    this.spawnEnemies();
 
     // clima do bioma: polen, areia, neve, brasas ou vagalumes
     this.ambient = this.add.particles(0, 0, "spark", {
@@ -129,6 +158,120 @@ export class FarmScene extends Phaser.Scene {
       speedY: m.fall ? { min: 15, max: 30 } : { min: -25, max: -8 }, speedX: { min: -8, max: 8 },
       scale: { start: 0.7, end: 0 }, alpha: { start: 0.8, end: 0 }, tint: m.ambient, quantity: 1, frequency: 260,
     }).setDepth(7);
+  }
+
+  // ---------- inimigos ----------
+  private makeEnemyTextures() {
+    if (this.textures.exists("enemy_mob")) return;
+    const g = this.add.graphics();
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(12, 13, 10);
+    g.fillStyle(0x1a1a1a, 1);
+    g.fillCircle(8, 11, 2);
+    g.fillCircle(16, 11, 2);
+    g.fillStyle(0x1a1a1a, 0.5);
+    g.fillRect(6, 20, 12, 2);
+    g.generateTexture("enemy_mob", 24, 24);
+    g.clear();
+
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(18, 19, 15);
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const x1 = 18 + Math.cos(a) * 15, y1 = 19 + Math.sin(a) * 15;
+      const x2 = 18 + Math.cos(a) * 22, y2 = 19 + Math.sin(a) * 22;
+      const perp = a + Math.PI / 2;
+      g.fillTriangle(x1 + Math.cos(perp) * 2.5, y1 + Math.sin(perp) * 2.5, x1 - Math.cos(perp) * 2.5, y1 - Math.sin(perp) * 2.5, x2, y2);
+    }
+    g.fillStyle(0x1a1a1a, 1);
+    g.fillCircle(12, 17, 3);
+    g.fillCircle(24, 17, 3);
+    g.generateTexture("enemy_mvp", 36, 36);
+    g.destroy();
+  }
+
+  /** Posiciona os inimigos deste mapa+instancia: alguns comuns, e um MVP so na instancia 33. */
+  private spawnEnemies() {
+    const mi = mapState.index, inst = mapState.instance;
+    const free: [number, number][] = [];
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++)
+        if (this.grid[y][x] === 0 && !this.heroes.some((h) => h.gx === x && h.gy === y)
+          && !SPAWNS.some(([sx, sy]) => Math.abs(sx - x) + Math.abs(sy - y) <= 2))
+          free.push([x, y]);
+    Phaser.Utils.Array.Shuffle(free);
+
+    const t = mapProgress(mi, inst);
+    const count = Math.min(free.length, 2 + Math.round(4 * t)); // 2 inimigos no inicio -> 6 nos mapas finais
+    for (let i = 0; i < count; i++) {
+      const [x, y] = free[i];
+      this.addEnemy(x, y, enemyHp(mi, inst), false);
+    }
+    if (hasMvp(inst) && free.length > count) {
+      const [x, y] = free[count];
+      this.addEnemy(x, y, mvpHp(mi, inst), true);
+    }
+  }
+
+  private addEnemy(gx: number, gy: number, maxHp: number, mvp: boolean) {
+    const px = gx * T + T / 2, py = gy * T + T / 2;
+    const sprite = this.add.image(px, py, mvp ? "enemy_mvp" : "enemy_mob").setDepth(4).setTint(mvp ? 0xffd24a : 0xd03a3a);
+    if (mvp) { sprite.setScale(1.15); this.tweens.add({ targets: sprite, scale: 1.3, duration: 500, yoyo: true, repeat: -1 }); }
+    const barBg = this.add.rectangle(px, py - 17, 26, 5, 0x000000, 0.7).setDepth(6).setVisible(false);
+    const barFg = this.add.rectangle(px - 13, py - 17, 26, 3, mvp ? 0xffd24a : 0xd03a3a).setOrigin(0, 0.5).setDepth(7).setVisible(false);
+    const reward = Math.round((mvp ? 25 : 6) * REWARD_SCALE * (1 + mapProgress(mapState.index, mapState.instance)));
+    this.enemies.push({ gx, gy, hp: maxHp, maxHp, mvp, reward, sprite, barBg, barFg, nextMoveAt: 0 });
+  }
+
+  private destroyEnemy(e: Enemy) {
+    this.tweens.killTweensOf(e.sprite);
+    [e.sprite, e.barBg, e.barFg].forEach((o) => o.destroy());
+  }
+
+  /** Inimigos vagam devagar por celulas livres (sem entrar em blocos, pilares, bombas ou outro inimigo). */
+  private tickEnemies() {
+    const now = this.time.now;
+    for (const e of this.enemies) {
+      if (now < e.nextMoveAt) continue;
+      e.nextMoveAt = now + 900 + Math.random() * 600;
+      const opts = DIRS.map(([dx, dy]) => [e.gx + dx, e.gy + dy] as [number, number]).filter(
+        ([x, y]) => inBounds(x, y) && this.grid[y][x] === 0 && !this.enemies.some((o) => o !== e && o.gx === x && o.gy === y)
+      );
+      if (!opts.length) continue;
+      const [nx, ny] = opts[Math.floor(Math.random() * opts.length)];
+      e.gx = nx; e.gy = ny;
+      this.tweens.add({ targets: e.sprite, x: nx * T + T / 2, y: ny * T + T / 2, duration: 700 });
+    }
+  }
+
+  /** Dano em um inimigo; quem der o golpe final leva a recompensa. */
+  private hitEnemy(owner: HeroData, e: Enemy, dmg: number) {
+    e.hp -= dmg;
+    if (e.hp <= 0) {
+      addEnemyReward(e.reward, owner);
+      const [cx, cy] = [e.sprite.x, e.sprite.y];
+      this.burst(cx, cy, e.mvp ? 0xffd24a : 0xd03a3a, e.mvp ? 16 : 8);
+      const txt = this.add.text(cx, cy, `+${e.reward}`, {
+        fontFamily: "monospace", fontSize: "14px", color: "#ffe27a", stroke: "#000", strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(8);
+      this.tweens.add({ targets: txt, y: txt.y - 26, alpha: 0, duration: 900, onComplete: () => txt.destroy() });
+      this.destroyEnemy(e);
+      this.enemies.splice(this.enemies.indexOf(e), 1);
+      return;
+    }
+    e.barBg.setVisible(true);
+    e.barFg.setVisible(true);
+    e.barFg.width = 26 * (e.hp / e.maxHp);
+    e.sprite.setScale(e.mvp ? 1.15 : 1);
+    this.tweens.add({ targets: e.sprite, scale: (e.mvp ? 1.15 : 1) * 1.15, duration: 70, yoyo: true });
+  }
+
+  /** Inimigo vizinho (nao ameaçado por bomba) que o operador pode atacar daqui. */
+  private adjacentEnemy(x: number, y: number, danger: Set<string>): [number, number, Enemy] | null {
+    for (const en of this.enemies) {
+      if (Math.abs(en.gx - x) + Math.abs(en.gy - y) === 1 && !danger.has(key(en.gx, en.gy))) return [en.gx, en.gy, en];
+    }
+    return null;
   }
 
   private addRuntime(data: HeroData) {
@@ -165,15 +308,20 @@ export class FarmScene extends Phaser.Scene {
     if (mapState.request !== null) {
       mapState.index = mapState.request;
       mapState.request = null;
+      mapState.instance = 1; // troca manual de mapa sempre comeca na instancia 1
       this.idle = 0;
       this.cameras.main.flash(300, 255, 255, 255, false);
       this.buildMap();
       return;
     }
     const stuck = this.idle >= 40 && this.bombs.size === 0;
-    if ((this.blocksLeft === 0 && this.chests.size === 0 && this.bombs.size === 0) || stuck) {
+    const cleared = this.blocksLeft === 0 && this.chests.size === 0 && this.bombs.size === 0 && this.enemies.length === 0;
+    if (cleared || stuck) {
       this.idle = 0;
-      if (mapState.auto) mapState.index = (mapState.index + 1) % MAPS.length; // avanca para o proximo bioma
+      if (mapState.auto) {
+        if (mapState.instance < INSTANCES_PER_MAP) mapState.instance++; // sobe de instancia no mesmo mapa
+        else { mapState.instance = 1; mapState.index = (mapState.index + 1) % MAPS.length; } // mapa seguinte
+      }
       this.cameras.main.flash(300, 255, 255, 255, false);
       this.buildMap();
     }
@@ -261,6 +409,17 @@ export class FarmScene extends Phaser.Scene {
     const cp = this.bfs(h.gx, h.gy, (x, y) => this.adjacentChest(x, y, danger) !== null, danger);
     if (cp) { this.idle = 0; say("Indo ao baú"); this.step(h, cp[0]); return; }
 
+    const foe = this.adjacentEnemy(h.gx, h.gy, danger);
+    if (foe) {
+      this.idle = 0;
+      const [, , e] = foe;
+      if (d.melee) { say(e.mvp ? "Golpeando o MVP" : "Golpeando inimigo"); this.slashEnemy(h, foe); }
+      else { say(e.mvp ? "Bombardeando o MVP" : "Bombardeando inimigo"); this.placeBomb(h); }
+      return;
+    }
+    const ep = this.bfs(h.gx, h.gy, (x, y) => this.adjacentEnemy(x, y, danger) !== null, danger);
+    if (ep) { this.idle = 0; say("Indo atacar inimigo"); this.step(h, ep[0]); return; }
+
     if (this.nextToBlock(h.gx, h.gy)) {
       this.idle = 0;
       if (d.melee) { say("Cortando blocos"); this.slash(h); } else { say("Plantando bomba"); this.placeBomb(h); }
@@ -303,6 +462,14 @@ export class FarmScene extends Phaser.Scene {
     const fx = this.add.image(x * T + T / 2, y * T + T / 2, "flame").setDepth(5).setTint(0xffffff).setScale(0.4);
     this.tweens.add({ targets: fx, scale: 0.9, alpha: 0, duration: 200, onComplete: () => fx.destroy() });
     this.hitChest(h.data, x, y, chest, Math.max(1, Math.round(bombDamage(h.data) * 0.4)));
+  }
+
+  /** Golpe corpo a corpo num inimigo (Jax): mesma logica do golpe no baú. */
+  private slashEnemy(h: Runtime, [x, y, e]: [number, number, Enemy]) {
+    h.data.stamina -= 0.3;
+    const fx = this.add.image(x * T + T / 2, y * T + T / 2, "flame").setDepth(5).setTint(0xffffff).setScale(0.4);
+    this.tweens.add({ targets: fx, scale: 0.9, alpha: 0, duration: 200, onComplete: () => fx.destroy() });
+    this.hitEnemy(h.data, e, Math.max(1, Math.round(bombDamage(h.data) * 0.4)));
   }
 
   /** Aplica dano; o operador que dá o golpe final recebe a recompensa. */
@@ -357,27 +524,46 @@ export class FarmScene extends Phaser.Scene {
     return r < 55 ? "common" : r < 79 ? "rare" : r < 91 ? "epic" : r < 97 ? "mythic" : r < 99.5 ? "legendary" : "super";
   }
 
+  /** Remove o bloco de fato (so chamado quando o HP dele chega a zero) e sorteia um bau. */
   private breakBlock(x: number, y: number, luck: number) {
     if (this.grid[y][x] !== 2) return;
     const cx = x * T + T / 2, cy = y * T + T / 2;
     this.grid[y][x] = 0;
     this.blockSprites[y][x]?.destroy();
     this.blockSprites[y][x] = null;
+    const bh = this.blocksHp.get(key(x, y));
+    if (bh) { bh.barBg?.destroy(); bh.barFg?.destroy(); this.blocksHp.delete(key(x, y)); }
     this.blocksLeft--;
     track.block();
     this.burst(cx, cy, this.map.crate, 8);
-    if (Math.random() < 0.3) {
+    if (Math.random() < this.dropChance) {
       const rarity = this.rollRarity(luck);
       const sprite = this.add.image(cx, cy, `chest_${rarity}`).setDepth(2).setScale(0);
       this.tweens.add({ targets: sprite, scale: 1, duration: 260, ease: "Back.Out" });
-      const maxHp = RARITIES[rarity].hp;
+      const maxHp = Math.round(RARITIES[rarity].hp * this.curChestHpMult);
       const barBg = this.add.rectangle(cx, cy - 17, 28, 5, 0x000000, 0.7).setDepth(6).setVisible(false);
       const barFg = this.add.rectangle(cx - 13, cy - 17, 26, 3, RARITIES[rarity].color).setOrigin(0, 0.5).setDepth(7).setVisible(false);
       this.chests.set(key(x, y), { sprite, rarity, hp: maxHp, maxHp, barBg, barFg });
     }
   }
 
-  /** Corte corpo a corpo (Jax): quebra um bloco adjacente gastando pouca stamina. */
+  /** Aplica dano num bloco; quebra de fato so quando o HP acaba (mapas/instancias avancadas exigem mais de 1 bombada). */
+  private hitBlock(x: number, y: number, dmg: number, luck: number) {
+    if (this.grid[y][x] !== 2) return;
+    const b = this.blocksHp.get(key(x, y));
+    if (!b) { this.breakBlock(x, y, luck); return; } // seguranca: sem registro de hp, quebra direto
+    b.hp -= dmg;
+    if (b.hp <= 0) { this.breakBlock(x, y, luck); return; }
+    if (b.barBg && b.barFg) {
+      b.barBg.setVisible(true);
+      b.barFg.setVisible(true);
+      b.barFg.width = 22 * (b.hp / b.maxHp);
+    }
+    const sprite = this.blockSprites[y][x];
+    if (sprite) { sprite.setScale(1); this.tweens.add({ targets: sprite, scale: 1.1, duration: 70, yoyo: true }); }
+  }
+
+  /** Corte corpo a corpo (Jax): dano reduzido num bloco adjacente, gastando pouca stamina. */
   private slash(h: Runtime) {
     const target = DIRS.map(([dx, dy]) => [h.gx + dx, h.gy + dy] as [number, number])
       .find(([x, y]) => inBounds(x, y) && this.grid[y][x] === 2);
@@ -386,15 +572,17 @@ export class FarmScene extends Phaser.Scene {
     const [x, y] = target;
     const fx = this.add.image(x * T + T / 2, y * T + T / 2, "flame").setDepth(5).setTint(0xffffff).setScale(0.5);
     this.tweens.add({ targets: fx, scale: 1.2, alpha: 0, duration: 260, onComplete: () => fx.destroy() });
-    this.breakBlock(x, y, h.data.luck);
+    this.hitBlock(x, y, Math.max(1, Math.round(bombDamage(h.data) * 0.4)), h.data.luck);
   }
 
   private explode(bomb: Bomb) {
     if (this.bombs.get(key(bomb.gx, bomb.gy)) !== bomb) return; // mapa trocado antes da explosao
     const cells = this.blast(bomb.gx, bomb.gy, bomb.range); // calcular antes de remover blocos
-    for (const [x, y] of cells) { // dano nos baus antes de quebrar blocos (baus novos nao sofrem esta explosao)
+    for (const [x, y] of cells) { // dano nos baus e inimigos antes de quebrar blocos (baus/inimigos novos nao sofrem esta explosao)
       const c = this.chests.get(key(x, y));
       if (c) this.hitChest(bomb.owner, x, y, c, bomb.dmg);
+      const e = this.enemies.find((en) => en.gx === x && en.gy === y);
+      if (e) this.hitEnemy(bomb.owner, e, bomb.dmg);
     }
     this.bombs.delete(key(bomb.gx, bomb.gy));
     this.tweens.killTweensOf(bomb.sprite);
@@ -405,7 +593,7 @@ export class FarmScene extends Phaser.Scene {
       const flame = this.add.image(cx, cy, "flame").setDepth(5).setScale(0.6);
       this.tweens.add({ targets: flame, scale: 1.5, alpha: 0, duration: 420, onComplete: () => flame.destroy() });
       this.burst(cx, cy, 0xffc04a, 5);
-      this.breakBlock(x, y, bomb.luck);
+      this.hitBlock(x, y, bomb.dmg, bomb.luck);
     }
   }
 }
