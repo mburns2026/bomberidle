@@ -49,6 +49,15 @@
       .ups { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
       button.up { padding: 3px 7px; font-size: .68rem; border-radius: 6px; box-shadow: 0 2px 0 #7a3d0c; }
       button.up.poor { filter: grayscale(.8); opacity: .75; }
+      .stats { color: var(--muted); margin-top: 2px; }
+      .eff { color: #9be8ff; margin-top: 3px; }
+      .abils { margin-top: 5px; }
+      .abil { display: flex; justify-content: space-between; gap: 8px; font-size: .74rem; margin-top: 2px; cursor: help; }
+      .abil .s { font-weight: 800; white-space: nowrap; }
+      .abil .s.ready { color: #7dff9b; } .abil .s.active { color: #39e6ff; } .abil .s.cooldown { color: #ffb830; } .abil .s.locked { color: #8a8a8a; } .abil .s.passive { color: #b9b9ff; }
+      details.more { font-size: .72rem; color: var(--muted); margin-top: 5px; }
+      details.more summary { cursor: pointer; }
+      details.more p { margin: 4px 0 0; line-height: 1.35; }
       li.mission { grid-template-columns: 1fr auto; align-items: center; }
       li.mission .bar { margin: 6px 0 4px; }
 

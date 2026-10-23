@@ -59,14 +59,22 @@ export interface HeroData {
   up: { stamina: number; speed: number; luck: number }; // niveis de melhoria
   base: { maxStamina: number; speed: number; luck: number }; // atributos de fabrica
   jitter: Jitter;
+  stats: HeroStats; // desempenho acumulado (so informativo: nao altera nenhuma regra)
 }
+
+/** Desempenho de um operador ao longo da vida (salvo junto; saves antigos comecam zerados). */
+export interface HeroStats { chests: number; blocks: number; enemies: number; crits: number; skills: number }
+const emptyStats = (): HeroStats => ({ chests: 0, blocks: 0, enemies: 0, crits: 0, skills: 0 });
+const cnt = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(1e9, Math.floor(v)) : 0);
+const cleanStats = (s?: Partial<HeroStats> | null): HeroStats => ({ chests: cnt(s?.chests), blocks: cnt(s?.blocks), enemies: cnt(s?.enemies), crits: cnt(s?.crits), skills: cnt(s?.skills) });
+export const bumpStat = (h: HeroData, k: keyof HeroStats, n = 1) => { h.stats[k] = Math.min(1e9, h.stats[k] + n); };
 
 export type UpKey = "stamina" | "speed" | "luck";
 export const UP_MAX = 10;
 const MAX_LEVEL = 30;
 
 interface Daily { day: string; blocks: number; bombs: number; chests: number; maps: string[]; claimed: string[] }
-interface SavedOp { r: Rarity; n: number; xp: number; lv: number; up: { stamina: number; speed: number; luck: number }; j: Jitter; w?: 1; s?: number }
+interface SavedOp { r: Rarity; n: number; xp: number; lv: number; up: { stamina: number; speed: number; luck: number }; j: Jitter; w?: 1; s?: number; st?: Partial<HeroStats> }
 interface SavedMap { i: number; n: number; a: boolean; r?: { i: number; n: number } } // indice, instancia, auto, ponto para retomar o Auto
 interface Saved {
   pending: number; chests: number;
@@ -93,6 +101,8 @@ const today = () => {
 };
 const freshDaily = (): Daily => ({ day: today(), blocks: 0, bombs: 0, chests: 0, maps: [], claimed: [] });
 const r2 = (n: number) => Math.round(n * 100) / 100;
+/** Numero finito dentro de [min, max]; qualquer outra coisa (NaN, Infinity, texto, undefined) vira `def`. */
+const fin = (v: unknown, min: number, max: number, def: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : def);
 
 /** Recalcula os atributos a partir da base, do nivel e das melhorias. */
 export function applyStats(h: HeroData) {
@@ -118,24 +128,38 @@ export const ARCH: Record<Rarity, Arch> = {
 const noJitter = (): Jitter => ({ s: 0, v: 0, l: 0 });
 const rollJitter = (): Jitter => ({ s: Math.floor(Math.random() * 4) - 1, v: r2((Math.random() - 0.5) * 0.2), l: r2(Math.random() * 0.2) });
 
-function build(r: Rarity, n: number, j: Jitter, lv = 1, xp = 0, up = { stamina: 0, speed: 0, luck: 0 }): HeroData {
+function build(r: Rarity, n: number, j: Jitter, lv = 1, xp = 0, up = { stamina: 0, speed: 0, luck: 0 }, stats?: Partial<HeroStats>): HeroData {
   const a = ARCH[r];
   const d: HeroData = {
     id: `op${n}`, serial: n, name: `${a.name} #${n}`, rarity: r, role: a.role, portrait: a.portrait,
     power: a.power, speed: a.speed, maxStamina: a.maxStamina, stamina: 0, regen: a.regen, luck: a.luck,
     chestMult: a.chestMult, melee: a.melee, level: lv, xp, up: { ...up },
     base: { maxStamina: a.maxStamina + j.s, speed: r2(a.speed * (1 + j.v)), luck: r2(a.luck + j.l) },
-    jitter: j,
+    jitter: j, stats: cleanStats(stats),
   };
   applyStats(d);
   d.stamina = d.maxStamina;
   return d;
 }
 
+/** Valida um operador salvo: raridade desconhecida ou numero ausente descarta o item; o resto vira valor seguro (sem NaN/Infinity/negativos). */
+function cleanOp(o: SavedOp): SavedOp | null {
+  if (!o || typeof o !== "object" || typeof o.r !== "string" || !Object.prototype.hasOwnProperty.call(ARCH, o.r)) return null;
+  const n = o.n;
+  if (typeof n !== "number" || !Number.isInteger(n) || n < 1 || n > 1e9) return null; // numero de serie invalido: descarta (clamp criaria um "op1" duplicado)
+  return {
+    ...o, n,
+    xp: fin(o.xp, 0, 1e9, 0), lv: Math.floor(fin(o.lv, 1, MAX_LEVEL, 1)),
+    up: { stamina: Math.floor(fin(o.up?.stamina, 0, UP_MAX, 0)), speed: Math.floor(fin(o.up?.speed, 0, UP_MAX, 0)), luck: Math.floor(fin(o.up?.luck, 0, UP_MAX, 0)) },
+    j: { s: fin(o.j?.s, -3, 3, 0), v: fin(o.j?.v, -0.5, 0.5, 0), l: fin(o.j?.l, 0, 0.5, 0) },
+  };
+}
+const savedOps: SavedOp[] = Array.isArray(saved?.owned) ? saved!.owned!.map(cleanOp).filter((o): o is SavedOp => o !== null) : [];
+
 function initialOwned(): HeroData[] {
-  if (saved?.owned?.length)
-    return saved.owned.map((o) => {
-      const h = build(o.r, o.n, o.j, o.lv, o.xp, o.up);
+  if (savedOps.length)
+    return savedOps.map((o) => {
+      const h = build(o.r, o.n, o.j, o.lv, o.xp, o.up, o.st);
       if (typeof o.s === "number" && o.s >= 0) h.stamina = Math.min(h.maxStamina, o.s); // recarregar a pagina nao enche mais a stamina
       return h;
     });
@@ -144,7 +168,8 @@ function initialOwned(): HeroData[] {
     const out: HeroData[] = [];
     RARITY_ORDER.forEach((r, i) => {
       const s = saved.heroes![ARCH[r].key];
-      out.push(build(r, i + 1, noJitter(), s?.level ?? 1, s?.xp ?? 0, s?.up));
+      const up = s?.up ? { stamina: Math.floor(fin(s.up.stamina, 0, UP_MAX, 0)), speed: Math.floor(fin(s.up.speed, 0, UP_MAX, 0)), luck: Math.floor(fin(s.up.luck, 0, UP_MAX, 0)) } : undefined;
+      out.push(build(r, i + 1, noJitter(), Math.floor(fin(s?.level, 1, MAX_LEVEL, 1)), fin(s?.xp, 0, 1e9, 0), up));
     });
     return out;
   }
@@ -152,7 +177,7 @@ function initialOwned(): HeroData[] {
 }
 
 const owned = initialOwned();
-const workingIds = new Set<string>(saved?.wk ? (saved.owned ?? []).filter((o) => o.w).map((o) => `op${o.n}`) : []);
+const workingIds = new Set<string>(saved?.wk ? savedOps.filter((o) => o.w).map((o) => `op${o.n}`) : []);
 
 /** Estado de selecao de mapa: "auto" avanca para a proxima instancia (e troca de mapa a cada 33) ao limpar a atual.
  *  `resume` guarda onde o Auto estava quando o jogador escolheu um mapa na mao, para nao perder o progresso. */
@@ -167,8 +192,8 @@ export const mapState = {
 };
 
 export const store = {
-  pending: saved ? saved.pending ?? 0 : START_BALANCE, // $BOMBERSI de teste (ainda sem blockchain)
-  chests: saved?.chests ?? 0,
+  pending: saved ? fin(saved.pending, 0, 1e15, 0) : START_BALANCE, // $BOMBERSI de teste (ainda sem blockchain)
+  chests: Math.floor(fin(saved?.chests, 0, 1e12, 0)),
   serial: Math.max(saved?.serial ?? 0, ...owned.map((o) => o.serial)) + 1, // proximo numero de operador
   collection: owned, // tudo o que o jogador possui
   heroes: [] as HeroData[], // os que estao trabalhando agora (ate MAX_WORKING)
@@ -205,7 +230,7 @@ function persist() {
     localStorage.setItem(KEY, JSON.stringify({
       pending: store.pending, chests: store.chests, daily: store.daily, serial: store.serial,
       wk: true, lodging: store.lodging, butler: store.butler,
-      owned: store.collection.map((h): SavedOp => ({ r: h.rarity, n: h.serial, xp: h.xp, lv: h.level, up: h.up, j: h.jitter, ...(workingIds.has(h.id) ? { w: 1 as const } : {}), s: r2(h.stamina) })),
+      owned: store.collection.map((h): SavedOp => ({ r: h.rarity, n: h.serial, xp: h.xp, lv: h.level, up: h.up, j: h.jitter, ...(workingIds.has(h.id) ? { w: 1 as const } : {}), s: r2(h.stamina), st: { ...h.stats } })),
       map: { i: mapState.index, n: mapState.instance, a: mapState.auto, ...(mapState.resume ? { r: mapState.resume } : {}) } as SavedMap,
     }));
   } catch {

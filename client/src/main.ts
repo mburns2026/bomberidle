@@ -6,6 +6,9 @@ import {
   isWorking, setWorking, workAll, restAll, buyLodging, buyButler, toggleButler, economyTick, LODGING, LodgeKind, BUTLER_PRICE, OUTSIDE_RATE, MAX_LODGINGS, saveNow, START_BALANCE,
 } from "./state";
 import { MAPS, INSTANCES_PER_MAP } from "./maps";
+import { abilitiesOf, abilityStatus, bomberClass, peekRuntime } from "./game/bomberAbilities";
+import { CLASS_INFO, NEUTRAL_MODS } from "./game/bomberConfig";
+import type { Modifiers } from "./game/bomberTypes";
 import { connect, requestClaim } from "./wallet";
 
 new Phaser.Game({
@@ -52,7 +55,19 @@ const UPS: { key: UpKey; label: string }[] = [
   { key: "speed", label: "Veloc." },
   { key: "luck", label: "Sorte" },
 ];
-interface HeroRef { lvl: HTMLElement; xp: HTMLElement; fill: HTMLElement; st: HTMLElement; work: HTMLButtonElement; ups: Record<UpKey, HTMLButtonElement> }
+interface AbilRef { name: HTMLElement; state: HTMLElement; id: string }
+interface HeroRef { lvl: HTMLElement; xp: HTMLElement; fill: HTMLElement; st: HTMLElement; work: HTMLButtonElement; ups: Record<UpKey, HTMLButtonElement>; stats: HTMLElement; eff: HTMLElement; abil: AbilRef[]; perf: HTMLElement }
+
+/** Texto curto dos bonus ativos agora (so o que difere do normal). */
+function effText(m: Modifiers): string {
+  const p: string[] = [];
+  const mult = (k: keyof Modifiers, label: string) => { if (Math.abs(m[k] - NEUTRAL_MODS[k]) > 0.005) p.push(`${label} ×${m[k].toFixed(2)}`); };
+  mult("dmgMult", "dano"); mult("speedMult", "veloc."); mult("regenMult", "regen."); mult("staminaCostMult", "custo");
+  if (m.luckBonus > 0.005) p.push(`sorte +${m.luckBonus.toFixed(2)}`);
+  if (m.critChance > 0.005) p.push(`crítico ${Math.round(m.critChance * 100)}%`);
+  if (m.blastRangeBonus > 0) p.push(`alcance +${m.blastRangeBonus}`);
+  return p.join(" · ");
+}
 const refs = new Map<string, HeroRef>();
 
 let builtVersion = -1;
@@ -115,10 +130,31 @@ function buildHeroes() {
       upsRow.append(b);
     }
 
-    info.append(top, el("div", "muted small", h.role), lvlRow, bar, st, upsRow);
+    // classe de combate, poder/velocidade, habilidades e desempenho
+    const cls = bomberClass(h.rarity), ci = CLASS_INFO[cls];
+    const classLine = el("div", "muted small", `${ci.label} · ${ci.role}`);
+    const stats = el("div", "small stats");
+    const eff = el("div", "small eff");
+    const abilBox = el("div", "abils");
+    const abil: AbilRef[] = [];
+    for (const def of abilitiesOf(cls)) {
+      const row = el("div", "abil");
+      row.title = def.desc;
+      const name = el("span", "n", `${def.kind === "passive" ? "◆" : "✦"} ${def.name}`);
+      const state = el("span", "s");
+      row.append(name, state);
+      abilBox.append(row);
+      abil.push({ name, state, id: def.id });
+    }
+    const more = el("details", "more");
+    more.append(el("summary", "", "Habilidades e desempenho"));
+    for (const def of abilitiesOf(cls)) more.append(el("p", "", `${def.name}: ${def.desc}${def.kind === "active" ? ` (recarga ${Math.round(def.cooldownMs / 1000)} s, libera no nível ${def.unlockLevel})` : ""}`));
+    const perf = el("p", "perf");
+    more.append(perf);
+    info.append(top, classLine, stats, lvlRow, bar, st, eff, abilBox, more, upsRow);
     li.append(img, info);
     list.append(li);
-    refs.set(h.id, { lvl, xp, fill, st, work, ups });
+    refs.set(h.id, { lvl, xp, fill, st, work, ups, stats, eff, abil, perf });
   }
   if (all.length > shown.length) {
     const more = el("button", "chip", `Mostrar mais (${all.length - shown.length})`);
@@ -199,7 +235,19 @@ function render() {
     ref.fill.style.width = `${Math.max(0, (h.stamina / h.maxStamina) * 100)}%`;
     const home = store.housed.get(h.id);
     const where = working.has(h) ? store.status[h.id] ?? "Pronto" : home ? `Descansando · ${LODGING[home].label}` : h.stamina < h.maxStamina ? "Descansando" : "Pronto na reserva";
-    ref.st.textContent = `${where} · stamina ${h.stamina.toFixed(1)}/${h.maxStamina}`;
+    ref.st.textContent = `${working.has(h) ? "▶ Trabalhando" : "⏸ Reserva"} · ${where} · stamina ${h.stamina.toFixed(1)}/${h.maxStamina}`;
+    // poder e velocidade: atual (com nivel e melhorias) contra o valor de fabrica
+    ref.stats.textContent = `Poder ${h.power} · Veloc. ${h.speed.toFixed(2)} (base ${h.base.speed.toFixed(2)}) · Sorte ${h.luck.toFixed(2)} (base ${h.base.luck.toFixed(2)}) · Stamina máx. ${h.maxStamina} (base ${h.base.maxStamina})`;
+    const rt = peekRuntime(h.id);
+    ref.eff.textContent = working.has(h) && rt ? effText(rt.mods) : "";
+    ref.eff.hidden = !ref.eff.textContent;
+    const defs = abilitiesOf(bomberClass(h.rarity));
+    ref.abil.forEach((a, i) => {
+      const st = abilityStatus(rt, defs[i], h.level);
+      a.state.textContent = st.text;
+      a.state.className = `s ${st.state}`;
+    });
+    ref.perf.textContent = `Desempenho: ${fmt(h.stats.chests)} baús · ${fmt(h.stats.blocks)} blocos · ${fmt(h.stats.enemies)} inimigos · ${fmt(h.stats.crits)} críticos · ${fmt(h.stats.skills)} habilidades usadas`;
     ref.work.textContent = working.has(h) ? "Recolher" : "Enviar";
     ref.work.classList.toggle("poor", !working.has(h) && (working.size >= MAX_WORKING || h.stamina < 1));
     for (const u of UPS) {
@@ -450,6 +498,12 @@ const HUB: Record<string, () => void> = {
       "Os baús têm vida (HP): quanto mais raro, mais bombas são necessárias para abri-lo. Quem dá o golpe final leva a recompensa.",
       "Inimigos vagam pelo mapa e também pagam $BOMBERSI (e XP) a quem os derrotar. Na última instância de cada mapa aparece um MVP, bem mais forte e que paga muito mais.",
       "Use os $BOMBERSI para melhorar Stamina, Velocidade e Sorte de cada operador, ou para abrir Cápsulas de Recruta.",
+    ]);
+    sec("Classes e habilidades", [
+      "Cada operador tem uma classe de combate: Lyra (suporte), Titan (tanque explosivo), Vex (hacker de tesouros), Kira (velocidade), Jax (samurai) e Orion (híbrido supremo).",
+      "Cada classe tem uma habilidade passiva (sempre ligada) e uma ativa, que o operador usa sozinho quando faz sentido. A ativa libera no nível 3 (Ascensão do Orion, no nível 8) e tem recarga.",
+      "Efeitos ativos e recargas valem só durante a sessão: ao recarregar a página eles recomeçam, e as recargas voltam parcialmente aquecidas.",
+      "Habilidades não geram $BOMBERSI: elas mudam como o operador luta, se move e escolhe alvos. As recompensas dos baús e inimigos continuam as mesmas.",
     ]);
     sec("Mapas e instâncias", [
       "São 50 mapas, cada um com 33 instâncias. A cada instância limpa o jogo avança sozinho (modo Auto).",

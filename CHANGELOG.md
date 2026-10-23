@@ -2,6 +2,26 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/) e versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado] - Bombers Overhaul 2.0
+Cada operador agora é uma classe de combate com habilidades, IA e visual próprios. Detalhes, parâmetros e limites em [docs/BOMBERS-2.0.md](docs/BOMBERS-2.0.md).
+### Adicionado
+- **Habilidades por classe** (1 passiva + 1 ativa automática, com duração, recarga e custo de stamina): Lyra (Eficiência Bio-mecânica, Pulso de Reparo), Titan (Quebra-Blindagem, Impacto Sísmico), Vex (Scanner de Tesouros, Varredura Profunda), Kira (Passo Furtivo, Impulso), Jax (Mestre da Lâmina, Tempestade de Lâminas), Orion (Presença Suprema, Ascensão). A ativa libera no nível 3 (Ascensão, no 8).
+- **IA nova**: um BFS por decisão, escolha de alvo com permanência (sem ping-pong), lista negra de alvos inalcançáveis, detecção de operador preso, checagem de fuga antes de plantar bomba, alvos em zona de bomba ignorados. A ordem baú > inimigo > bloco da 1.7.1 foi mantida; a classe decide *dentro* de cada categoria.
+- **Combate**: crítico do Jax (limitado a 35%), combo de 3 golpes, intervalo mínimo entre golpes, explosão em área do Titan (respeita casinhas, blocos e bordas), dano extra do Titan em baús/blocos resistentes.
+- **Visual**: mochila, cabos, cachecol, bainha e aureola por classe, núcleo de energia colorido, poses de golpe e de plantar bomba, efeitos reutilizáveis (pool): impacto, crítico, habilidade, bônus de equipe, subida de nível, hologramas do Vex, rastro do Kira, marcos de nível (10/20/30).
+- **Interface**: classe, poder/velocidade/sorte/stamina atual vs. base, estado das habilidades (pronta, ativa, recarga, bloqueada), bônus ativos em campo, trabalhando/reserva e estatísticas por operador. Seção "Classes e habilidades" no Manual.
+- Estatísticas por operador (baús, blocos, inimigos, críticos, habilidades) salvas no campo opcional `st`.
+- Testes: `client/test/bombers.test.ts` (habilidades, limites, combate, geometria, IA e simulação de 15 operadores) e `client/test/state-bombers.test.ts` (migração e compatibilidade). `npm run smoke -w client` roda a cena real com um mock do Phaser.
+### Corrigido
+- Duas bombas na mesma célula faziam a primeira vazar (sprite e animação infinita); agora a segunda não é plantada.
+- `hitChest`/`hitEnemy` aceitavam objetos já destruídos (risco de recompensa dupla com golpes múltiplos); agora são ignorados.
+- A stamina pode ser gasta/recuperada só por funções que garantem `0 <= stamina <= máximo`.
+- Save com raridade inválida quebrava o carregamento; agora o item é descartado e os números inválidos (NaN, Infinity, negativos, fora da faixa) viram valores seguros. `bomber-idle:v1` e o formato antigo continuam válidos.
+### Alterado
+- Lyra gasta 15% menos stamina por bomba e recupera 25% mais rápido ao descansar em campo. Vex enxerga o valor dos baús a 6 tiles (os demais, a 4). Orion tem +10% de dano. Esses bônus são o preço da identidade das classes; a renda medida no simulador ficou equivalente (veja o documento).
+### Não alterado
+- Economia, preços, tokenomics, programa Solana, servidor, mapas (50 x 33), raridades, cápsulas, alojamentos, Zelador e missões.
+
 ## [1.7.1] - 2026-10-21
 Revisão geral: correções, testes e documentação. Veja os detalhes e o que ainda falta em [docs/REVISAO-1.7.1.md](docs/REVISAO-1.7.1.md).
 ### Corrigido

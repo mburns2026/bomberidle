@@ -81,3 +81,14 @@ O HP acompanha o dano esperado de um operador no ponto da progressão, então o 
 
 ## Salvamento (v1.7.1)
 Ficam no `localStorage` (`bomber-idle:v1`): saldo, operadores (nível, XP, melhorias, stamina, quem está trabalhando), alojamentos, Zelador, missões do dia, mapa/instância/Auto. Missões reiniciam à meia-noite do aparelho.
+
+## Classes e habilidades (Bombers Overhaul 2.0)
+| Termo | Significado |
+|---|---|
+| Classe de combate | Papel do operador, definido pela raridade: Lyra (suporte), Titan (tanque), Vex (hacker), Kira (velocidade), Jax (samurai), Orion (híbrido) |
+| Passiva / Ativa | Passiva fica sempre ligada; ativa dispara sozinha por condição, tem duração, recarga e custo |
+| Recarga | Tempo até a ativa poder disparar de novo. Não é salva: ao recarregar a página volta com 30% da recarga |
+| Bônus de equipe | Bônus pequeno (máx. 10%) dado por Orion a aliados próximos; não soma entre fontes |
+| Alvo resistente | Baú, ou bloco com HP máximo de 20 ou mais |
+
+Parâmetros e limites: `client/src/game/bomberConfig.ts`. Visão geral: [BOMBERS-2.0.md](BOMBERS-2.0.md).

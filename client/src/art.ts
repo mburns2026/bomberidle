@@ -15,12 +15,14 @@ const shadow = (g: G, w = 22) => g.fillStyle(0x000000, 0.4).fillEllipse(16, 29, 
 
 // ---------- bomber-bots: herois chibi (cabecao, corpo pequeno), um por raridade ----------
 interface Bot {
-  body: number; trim: number; helm: number; visor: number; eye: number; eye2?: number; wide?: number;
+  body: number; trim: number; helm: number; visor: number; eye: number; eye2?: number; wide?: number; core?: number; // core = cor do nucleo de energia no peito
   back?: (g: G, f: number) => void; top?: (g: G) => void; front?: (g: G, f: number) => void;
 }
 
 function drawBot(g: G, P: Bot, f: number) {
-  const lift = [[0, 0], [-2, 0], [0, 0], [0, -2]][f], bob = [0, -1, 0, -1][f], sw = [0, 1, 0, -1][f], wd = P.wide ?? 0;
+  // quadros 0-3: caminhada; 4: golpe (braco levantado); 5: plantar bomba (agachado, bracos para a frente)
+  const lift = [[0, 0], [-2, 0], [0, 0], [0, -2], [0, 0], [0, 0]][f], bob = [0, -1, 0, -1, -1, 1][f], sw = [0, 1, 0, -1, 0, 2][f], wd = P.wide ?? 0;
+  const rs = f === 5 ? sw : -sw, squint = f === 3 || f === 4;
   P.back?.(g, f);
   shadow(g, 20 + wd * 2);
   [[10, lift[0]], [17, lift[1]]].forEach(([x, dy]) => { R(g, OUT, x, 27 + dy, 5, 4); R(g, P.trim, x + 1, 27 + dy, 3, 2); R(g, shade(P.body, 0.6), x + 1, 29 + dy, 3, 1); });
@@ -28,46 +30,51 @@ function drawBot(g: G, P: Bot, f: number) {
   // corpo
   R(g, OUT, 10 - wd, 18, 12 + wd * 2, 9); R(g, P.body, 11 - wd, 19, 10 + wd * 2, 7);
   R(g, shade(P.body, 1.4), 11 - wd, 19, 10 + wd * 2, 2); R(g, shade(P.body, 0.65), 11 - wd, 24, 10 + wd * 2, 2);
-  // moeda no peito (tema crypto)
-  g.fillStyle(OUT).fillCircle(16, 22, 3.5); g.fillStyle(0xffd24a).fillCircle(16, 22, 2.5); R(g, 0xfff3b0, 15, 21, 1, 1); R(g, 0xb47a10, 16, 23, 1, 1);
+  // moeda no peito (tema crypto) com anel de nucleo de energia na cor da classe
+  g.fillStyle(OUT).fillCircle(16, 22, 4); g.fillStyle(P.core ?? 0xffd24a).fillCircle(16, 22, 3.3); g.fillStyle(0xffd24a).fillCircle(16, 22, 2.4); R(g, 0xfff3b0, 15, 21, 1, 1); R(g, 0xb47a10, 16, 23, 1, 1);
   // bracos
   R(g, OUT, 7 - wd, 19 + sw, 3, 6); R(g, P.trim, 8 - wd, 20 + sw, 1, 4);
-  R(g, OUT, 22 + wd, 19 - sw, 3, 6); R(g, P.trim, 23 + wd, 20 - sw, 1, 4);
+  if (f === 4) { R(g, OUT, 22 + wd, 12, 3, 9); R(g, P.trim, 23 + wd, 13, 1, 7); R(g, 0xffffff, 22 + wd, 10, 3, 2, 0.9); } // golpe: braco para cima
+  else { R(g, OUT, 22 + wd, 19 + rs, 3, 6); R(g, P.trim, 23 + wd, 20 + rs, 1, 4); }
   // cabecao com visor
   g.fillStyle(OUT).fillRoundedRect(6, 2, 20, 17, 6);
   g.fillStyle(P.helm).fillRoundedRect(7, 3, 18, 15, 5);
   R(g, shade(P.helm, 1.45), 10, 4, 9, 2); R(g, shade(P.helm, 0.7), 8, 16, 16, 2);
   g.fillStyle(P.visor).fillRoundedRect(9, 8, 14, 8, 3);
-  R(g, P.eye, 11, 11, 3, f === 3 ? 1 : 3); R(g, P.eye2 ?? P.eye, 18, 11, 3, f === 3 ? 1 : 3);
+  R(g, P.eye, 11, 11, 3, squint ? 1 : 3); R(g, P.eye2 ?? P.eye, 18, 11, 3, squint ? 1 : 3);
   R(g, 0xffffff, 12, 11, 1, 1, 0.8); R(g, 0xffffff, 19, 11, 1, 1, 0.8);
   P.top?.(g);
   P.front?.(g, f);
 }
 
 const BOTS: Record<Rarity, Bot> = {
-  common: { body: 0x4a5a7a, trim: PU, helm: 0x7d8cab, visor: 0x0a1a2a, eye: CY, // Lyra
+  common: { body: 0x4a5a7a, trim: PU, helm: 0x7d8cab, visor: 0x0a1a2a, eye: CY, core: 0x55ffb0, // Lyra: mochila medica
+    back: (g) => { R(g, OUT, 3, 17, 7, 11); R(g, 0x2f6f5a, 4, 18, 5, 9); R(g, 0x55ffb0, 5, 22, 3, 1); R(g, 0x55ffb0, 6, 21, 1, 3); R(g, 0xb8ffe0, 4, 18, 5, 1); },
     top: (g) => { R(g, OUT, 24, 5, 4, 7); R(g, 0x14121f, 25, 6, 2, 5); R(g, CY, 9, 10, 14, 1, 0.9); },
     front: (g, f) => { R(g, 0xc0c8d4, 25, 20, 2, 7); R(g, 0xc0c8d4, 24, 19, 4, 2); R(g, f % 2 ? 0xffd24a : 0xff9a3c, 25, 17, 2, 2); } },
-  rare: { body: 0x6a3fb0, trim: 0x9b6cff, helm: 0x3b3a5c, visor: 0x05060f, eye: CY, eye2: MG, wide: 2, // Titan
+  rare: { body: 0x6a3fb0, trim: 0x9b6cff, helm: 0x3b3a5c, visor: 0x05060f, eye: CY, eye2: MG, wide: 2, core: 0xff9a3c, // Titan: tanques propulsores
+    back: (g, f) => { [1, 25].forEach((x) => { R(g, OUT, x, 11, 6, 16); R(g, 0xb0602a, x + 1, 12, 4, 14); R(g, 0xffb15a, x + 1, 12, 1, 14); R(g, 0xff9a3c, x + 2, 27, 2, 1 + (f % 2)); }); },
     front: () => {} },
-  epic: { body: 0x2c4a6b, trim: PU, helm: 0x2a3350, visor: 0x1a0f3a, eye: 0xe0c8ff, // Vex
+  epic: { body: 0x2c4a6b, trim: PU, helm: 0x2a3350, visor: 0x1a0f3a, eye: 0xe0c8ff, core: CY, // Vex: cabos de dados
+    back: (g, f) => { R(g, OUT, 4, 9, 3, 15); R(g, CY, 5, 10, 1, 13, f % 2 ? 0.9 : 0.5); R(g, OUT, 1, 15, 3, 9); R(g, CY, 2, 16, 1, 7, 0.6); },
     top: (g) => { R(g, OUT, 10, 0, 3, 4); R(g, 0x1a1530, 11, 1, 1, 3); R(g, OUT, 16, 0, 3, 4); R(g, 0x1a1530, 17, 1, 1, 3); },
     front: (g, f) => { R(g, CY, 25, 9, 6, 8, f % 2 ? 0.5 : 0.35); R(g, 0x9bf6ff, 25, 9, 6, 1); R(g, 0x9bf6ff, 26, 12, 3, 1); } },
-  mythic: { body: 0x14161f, trim: CY, helm: 0x2a3040, visor: 0x05060f, eye: CY, // Kira
+  mythic: { body: 0x14161f, trim: CY, helm: 0x2a3040, visor: 0x05060f, eye: CY, core: 0xdfe8ff, // Kira: cachecol de energia
+    back: (g, f) => { const d = [0, 1, 0, -1, 0, 0][f]; R(g, OUT, 4, 18 + d, 6, 3); R(g, CY, 5, 19 + d, 5, 1); R(g, OUT, 0, 19 + d * 2, 5, 3); R(g, CY, 1, 20 + d * 2, 4, 1, 0.7); },
     top: (g) => { R(g, OUT, 13, 0, 6, 4); R(g, 0xaab4c8, 14, 1, 4, 2); },
     front: (g) => { for (let i = 0; i < 8; i++) { R(g, OUT, 22 + i, 23 - i, 3, 3); R(g, 0xdfe8ff, 23 + i, 23 - i, 1, 2); } } },
-  legendary: { body: 0x6a3fb0, trim: MG, helm: 0x3a2a60, visor: 0x120a22, eye: MG, // Jax
-    back: (g) => { g.fillStyle(MG, 0.22).fillCircle(16, 16, 15); },
+  legendary: { body: 0x6a3fb0, trim: MG, helm: 0x3a2a60, visor: 0x120a22, eye: MG, core: MG, // Jax: bainha de katana nas costas
+    back: (g) => { g.fillStyle(MG, 0.22).fillCircle(16, 16, 15); for (let i = 0; i < 12; i++) { R(g, OUT, 8 + i, 6 + i, 3, 3); R(g, 0x2a1a3a, 9 + i, 7 + i, 1, 1); } R(g, 0xffd0fa, 7, 4, 3, 2); },
     top: (g) => { R(g, OUT, 6, 0, 4, 4); R(g, 0x8f5cf0, 7, 1, 2, 2); R(g, OUT, 22, 0, 4, 4); R(g, 0x8f5cf0, 23, 1, 2, 2); },
     front: () => {} },
-  super: { body: 0xf2c14a, trim: 0xffffff, helm: 0xe6c070, visor: 0x0b1a3a, eye: 0x2b6bff, // Orion
+  super: { body: 0xf2c14a, trim: 0xffffff, helm: 0xe6c070, visor: 0x0b1a3a, eye: 0x2b6bff, core: 0xfff4c2, // Orion: asas e aureola
     back: (g, f) => {
       const d = [0, -1, 0, 1][f];
       g.fillStyle(0xfff4c2, 0.35).fillCircle(16, 15, 16);
       R(g, OUT, 0, 10 + d, 8, 12); R(g, 0xe8ecf8, 1, 11 + d, 6, 10); R(g, 0xffffff, 1, 11 + d, 2, 10);
       R(g, OUT, 24, 10 + d, 8, 12); R(g, 0xe8ecf8, 25, 11 + d, 6, 10); R(g, 0xffffff, 29, 11 + d, 2, 10);
     },
-    top: (g) => { R(g, OUT, 7, 0, 5, 5); R(g, 0xd9b46a, 8, 1, 3, 3); R(g, OUT, 20, 0, 5, 5); R(g, 0xd9b46a, 21, 1, 3, 3); },
+    top: (g) => { R(g, OUT, 7, 0, 5, 5); R(g, 0xd9b46a, 8, 1, 3, 3); R(g, OUT, 20, 0, 5, 5); R(g, 0xd9b46a, 21, 1, 3, 3); g.lineStyle(1, 0xfff1b8, 0.9).strokeEllipse(16, 2, 12, 3); },
     front: () => {} },
 };
 // acessorios que precisam do contexto grafico (definidos aqui para manter o objeto acima enxuto)
@@ -147,7 +154,7 @@ export function makeTextures(s: Phaser.Scene) {
       R(g, OUT, 14, 15, 4, 7); R(g, l, 15, 16, 2, 5);
       if (r === "mythic" || r === "legendary" || r === "super") { R(g, 0xffffff, 9, 5, 1, 4); R(g, 0xffffff, 7, 7, 5, 1); R(g, 0xffffff, 24, 3, 1, 3); R(g, 0xffffff, 23, 4, 3, 1); }
     });
-    [0, 1, 2, 3].forEach((f) => mk(`hero_${r}_${f}`, (g) => drawBot(g, BOTS[r], f)));
+    [0, 1, 2, 3, 4, 5].forEach((f) => mk(`hero_${r}_${f}`, (g) => drawBot(g, BOTS[r], f))); // 0-3 caminhada, 4 golpe, 5 plantar bomba
   });
 
   mk("bomb", (g) => {
@@ -159,6 +166,14 @@ export function makeTextures(s: Phaser.Scene) {
   mk("flame", (g) => { g.fillStyle(0xff7a1a, 0.9).fillCircle(16, 16, 14); g.fillStyle(0xffd24a).fillCircle(16, 16, 9); g.fillStyle(0xfff3b0).fillCircle(16, 16, 4); });
   mk("glow", (g) => { g.fillStyle(0xffffff, 0.1).fillCircle(16, 16, 16); g.fillStyle(0xffffff, 0.15).fillCircle(16, 16, 11); g.fillStyle(0xffffff, 0.25).fillCircle(16, 16, 6); });
   mk("spark", (g) => R(g, 0xffffff, 0, 0, 6, 6), 6, 6);
+
+  // texturas dos efeitos reutilizaveis (brancas: a cor vem do tint em tempo de uso)
+  mk("fx_ring", (g) => { g.lineStyle(3, 0xffffff, 1).strokeCircle(16, 16, 13); g.lineStyle(1, 0xffffff, 0.5).strokeCircle(16, 16, 9); });
+  mk("fx_slash", (g) => { g.fillStyle(0xffffff, 1).fillTriangle(3, 29, 29, 3, 15, 25); g.fillStyle(0xffffff, 0.6).fillTriangle(8, 30, 30, 8, 18, 27); });
+  mk("fx_star", (g) => { g.fillStyle(0xffffff, 1); g.fillTriangle(16, 0, 20, 16, 12, 16); g.fillTriangle(16, 32, 20, 16, 12, 16); g.fillTriangle(0, 16, 16, 12, 16, 20); g.fillTriangle(32, 16, 16, 12, 16, 20); });
+  mk("fx_plus", (g) => { R(g, 0xffffff, 12, 4, 8, 24); R(g, 0xffffff, 4, 12, 24, 8); });
+  mk("fx_holo", (g) => { [[2, 2, 1, 1], [30, 2, -1, 1], [2, 30, 1, -1], [30, 30, -1, -1]].forEach(([x, y, sx, sy]) => { R(g, 0xffffff, sx > 0 ? x : x - 8, sy > 0 ? y : y - 1, 8, 2); R(g, 0xffffff, sx > 0 ? x : x - 1, sy > 0 ? y : y - 8, 2, 8); }); R(g, 0xffffff, 15, 15, 2, 2, 0.8); });
+  mk("fx_streak", (g) => { R(g, 0xffffff, 0, 3, 24, 2, 0.25); R(g, 0xffffff, 6, 3, 18, 2, 0.5); R(g, 0xffffff, 14, 3, 10, 2, 0.9); }, 24, 8);
 
   MAPS.forEach((m) => mapTextures(mk, m));
 }
