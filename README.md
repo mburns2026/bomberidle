@@ -15,7 +15,7 @@ docs/TOKENOMICS.md     Rascunho de economia
 ```
 
 ## Modo demo (cliente)
-O cliente roda sozinho. Até 15 operadores (6 raridades, de Comum a Super lendário) exploram o mapa, plantam bombas, atacam baús (que têm HP) e inimigos, e gastam stamina. Há 50 mapas com 33 instâncias cada (a dificuldade cresce a cada instância e há um MVP na 33), Cápsulas de Recruta, Alojamentos, Droide Zelador, melhorias e missões diárias. Tudo fica no `localStorage` do navegador. Toda a arte é gerada por código (sem assets de terceiros).
+O cliente roda sozinho. Até 15 operadores (8 raridades, de Comum a Ancestral) exploram o mapa, plantam bombas, atacam baús (que têm HP) e inimigos, e gastam stamina. Há 50 mapas com 33 instâncias cada (a dificuldade cresce a cada instância e há um MVP na 33), Cápsulas de Recruta, Alojamentos, Droide Zelador, melhorias e missões diárias. Tudo fica no `localStorage` do navegador. Toda a arte é gerada por código (sem assets de terceiros).
 
 ## Fluxo de saque
 1. Servidor simula o farming off-chain e acumula `pending`.

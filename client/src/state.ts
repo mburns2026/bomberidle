@@ -1,17 +1,21 @@
 import { MAPS, INSTANCES_PER_MAP } from "./maps";
 
-export type Rarity = "common" | "rare" | "epic" | "mythic" | "legendary" | "super";
+export type Rarity = "common" | "uncommon" | "rare" | "epic" | "mythic" | "legendary" | "super" | "ancestral";
 
 // chest = valor base do bau dessa raridade; hp = vida do bau (quanto mais raro, mais dificil); mult = multiplicador do operador dessa raridade
 export const RARITIES: Record<Rarity, { label: string; color: number; css: string; mult: number; chest: number; hp: number }> = {
   common: { label: "Comum", color: 0x8d99a6, css: "#8d99a6", mult: 1, chest: 1, hp: 10 },
+  uncommon: { label: "Incomum", color: 0x4ade80, css: "#4ade80", mult: 1.05, chest: 1.5, hp: 15 }, // so operador (Kai): baus NAO sorteiam esta raridade
   rare: { label: "Raro", color: 0x3fa2ff, css: "#3fa2ff", mult: 1.1, chest: 2, hp: 20 },
   epic: { label: "Épico", color: 0x9b5cff, css: "#9b5cff", mult: 1.25, chest: 4, hp: 40 },
   mythic: { label: "Mítico", color: 0xff3fa4, css: "#ff3fa4", mult: 1.5, chest: 8, hp: 80 },
   legendary: { label: "Lendário", color: 0xffb830, css: "#ffb830", mult: 1.8, chest: 16, hp: 160 },
   super: { label: "Super lendário", color: 0xfff1b8, css: "#fff1b8", mult: 2.5, chest: 40, hp: 320 },
+  ancestral: { label: "Ancestral", color: 0x4ff0d0, css: "#4ff0d0", mult: 3, chest: 80, hp: 640 }, // so operador (Aeon): baus NAO sorteiam esta raridade
 };
-export const RARITY_ORDER: Rarity[] = ["common", "rare", "epic", "mythic", "legendary", "super"];
+export const RARITY_ORDER: Rarity[] = ["common", "uncommon", "rare", "epic", "mythic", "legendary", "super", "ancestral"];
+/** As 6 raridades originais: a migracao de saves antigos (pre-1.6) cria so estes 6 operadores, nunca os novos. */
+const LEGACY_RARITIES: Rarity[] = ["common", "rare", "epic", "mythic", "legendary", "super"];
 const rank = (r: Rarity) => RARITY_ORDER.indexOf(r);
 
 // ---------- economia (valores de teste; ajuste aqui) ----------
@@ -34,8 +38,8 @@ export const BUTLER_REST_AT = 0.15; // Zelador recolhe quem cai abaixo de 15%
 export const BUTLER_WORK_AT = 0.8; // e devolve ao trabalho quem chega a 80%
 /** Dano de uma bomba nos baus: cresce com o poder e o nivel do operador. */
 export const bombDamage = (d: { power: number; level: number }) => Math.round(8 + 2 * d.power + 0.4 * (d.level - 1));
-/** Chances (%) da Capsula de Recruta. Soma 100. */
-export const CAPSULE_ODDS: Record<Rarity, number> = { common: 55, rare: 24, epic: 12, mythic: 6, legendary: 2.5, super: 0.5 };
+/** Chances (%) da Capsula de Recruta. Soma 100. Raro..Super lendario seguem iguais a 1.7.1; os 55% do Comum foram divididos entre Comum, Incomum (Kai) e Ancestral (Aeon). */
+export const CAPSULE_ODDS: Record<Rarity, number> = { common: 41.9, uncommon: 13, rare: 24, epic: 12, mythic: 6, legendary: 2.5, super: 0.5, ancestral: 0.1 };
 
 export interface Jitter { s: number; v: number; l: number } // variacao individual: stamina, velocidade, sorte
 
@@ -118,11 +122,13 @@ export const xpInfo = (h: HeroData) => ({ xp: h.xp, need: xpNeed(h.level) });
 interface Arch { key: string; name: string; role: string; portrait: string; power: number; speed: number; maxStamina: number; regen: number; luck: number; chestMult: number; melee: boolean }
 export const ARCH: Record<Rarity, Arch> = {
   common: { key: "lyra", name: "Lyra", role: "Bio-mecânica: recupera stamina rápido", portrait: "nft/lyra.jpg", power: 1, speed: 1.0, maxStamina: 8, regen: 0.3, luck: 0, chestMult: 1, melee: false },
+  uncommon: { key: "kai", name: "Kai", role: "Techno-Stalker: caça inimigos com precisão", portrait: "nft/kai.jpg", power: 2, speed: 1.15, maxStamina: 10, regen: 0.12, luck: 0.1, chestMult: 1, melee: false },
   rare: { key: "titan", name: "Titan", role: "Piloto tanque: bomba grande, lento", portrait: "nft/titan.jpg", power: 5, speed: 0.8, maxStamina: 14, regen: 0.12, luck: 0, chestMult: 1, melee: false },
   epic: { key: "vex", name: "Vex", role: "Hacker: atrai baús mais raros", portrait: "nft/vex.jpg", power: 3, speed: 1.3, maxStamina: 10, regen: 0.12, luck: 1, chestMult: 1, melee: false },
   mythic: { key: "kira", name: "Kira", role: "Android furtiva: a mais veloz", portrait: "nft/kira.jpg", power: 2, speed: 2.0, maxStamina: 12, regen: 0.12, luck: 0.3, chestMult: 1, melee: false },
   legendary: { key: "jax", name: "Jax", role: "Samurai: corta blocos sem bomba", portrait: "nft/jax.jpg", power: 3, speed: 1.7, maxStamina: 12, regen: 0.15, luck: 0.5, chestMult: 1, melee: true },
   super: { key: "orion", name: "Orion", role: "Divino: todos os bônus, baús x2", portrait: "nft/orion.jpg", power: 5, speed: 1.8, maxStamina: 20, regen: 0.25, luck: 1.5, chestMult: 2, melee: false },
+  ancestral: { key: "aeon", name: "Aeon", role: "Grid Architect: o ápice dos BOMBERS, baús x2,5", portrait: "nft/aeon.jpg", power: 5, speed: 1.9, maxStamina: 24, regen: 0.3, luck: 2, chestMult: 2.5, melee: false },
 };
 
 const noJitter = (): Jitter => ({ s: 0, v: 0, l: 0 });
@@ -166,7 +172,7 @@ function initialOwned(): HeroData[] {
   if (saved?.heroes) {
     // migracao: os 6 operadores fixos das versoes anteriores viram operadores #1..#6 com o progresso preservado
     const out: HeroData[] = [];
-    RARITY_ORDER.forEach((r, i) => {
+    LEGACY_RARITIES.forEach((r, i) => {
       const s = saved.heroes![ARCH[r].key];
       const up = s?.up ? { stamina: Math.floor(fin(s.up.stamina, 0, UP_MAX, 0)), speed: Math.floor(fin(s.up.speed, 0, UP_MAX, 0)), luck: Math.floor(fin(s.up.luck, 0, UP_MAX, 0)) } : undefined;
       out.push(build(r, i + 1, noJitter(), Math.floor(fin(s?.level, 1, MAX_LEVEL, 1)), fin(s?.xp, 0, 1e9, 0), up));

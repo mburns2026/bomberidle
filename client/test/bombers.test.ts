@@ -5,7 +5,7 @@ import { CLASS_BY_RARITY } from "../src/game/bomberTypes.ts";
 import type { AbilityContext, AbilityId, BomberClass, CellTarget, WorldView } from "../src/game/bomberTypes.ts";
 import {
   activate, abilityStatus, auraOf, bomberClass, clearTransient, consumeArmed, createRuntime, decideAbilities, detectRadius, isReady,
-  modifiersOf, repairPulse, resetRegistry, runtimeOf, setTeamBuff, tickRuntime, type BomberLike,
+  modifiersOf, repairPulse, resetRegistry, runtimeOf, setTeamBuff, syncCooldowns, tickRuntime, type BomberLike,
 } from "../src/game/bomberAbilities.ts";
 import {
   blastCells, bombDamageVs, bombRange, bombSnapshot, createRng, gainStamina, meleeDamage, newCombo, registerHit, rollCrit, spendStamina,
@@ -15,12 +15,13 @@ import {
 } from "../src/game/bomberAI.ts";
 
 const hero = (rarity: BomberLike["rarity"], over: Partial<BomberLike> = {}): BomberLike => ({ id: `h-${rarity}`, rarity, level: 30, stamina: 10, maxStamina: 10, ...over });
-const CLASSES: BomberClass[] = ["lyra", "titan", "vex", "kira", "jax", "orion"];
+const CLASSES: BomberClass[] = ["lyra", "kai", "titan", "vex", "kira", "jax", "orion", "aeon"];
+const RARITIES8 = ["common", "uncommon", "rare", "epic", "mythic", "legendary", "super", "ancestral"] as const;
 const ctx = (o: Partial<AbilityContext> = {}): AbilityContext => ({ pathLen: null, adjacentTarget: false, resistantNear: false, targetsNear: 0, chestsDetected: 0, enemiesNear: 0, alliesNeedingSupport: 0, inDanger: false, ...o });
 
 // ---------- habilidades: identidade e limites ----------
 test("cada BOMBER tem as habilidades da sua classe (1 passiva + 1 ativa) e a raridade mapeia para a classe certa", () => {
-  assert.deepEqual(CLASS_BY_RARITY, { common: "lyra", rare: "titan", epic: "vex", mythic: "kira", legendary: "jax", super: "orion" });
+  assert.deepEqual(CLASS_BY_RARITY, { common: "lyra", uncommon: "kai", rare: "titan", epic: "vex", mythic: "kira", legendary: "jax", super: "orion", ancestral: "aeon" });
   const ids = new Set<string>();
   for (const cls of CLASSES) {
     const list = ABILITIES_BY_CLASS[cls];
@@ -28,8 +29,8 @@ test("cada BOMBER tem as habilidades da sua classe (1 passiva + 1 ativa) e a rar
     assert.deepEqual(list.map((d) => d.kind), ["passive", "active"], cls);
     for (const d of list) { assert.equal(d.cls, cls); assert.ok(d.id.startsWith(cls + "_")); assert.ok(d.name && d.desc); assert.ok(!ids.has(d.id)); ids.add(d.id); }
   }
-  assert.equal(ids.size, 12);
-  assert.equal(Object.keys(ABILITY_DEFS).length, 12);
+  assert.equal(ids.size, 16);
+  assert.equal(Object.keys(ABILITY_DEFS).length, 16);
 });
 
 test("toda habilidade respeita os limites de duracao, recarga e modificadores", () => {
@@ -49,7 +50,7 @@ test("toda habilidade respeita os limites de duracao, recarga e modificadores", 
 });
 
 test("modificadores ficam dentro dos limites mesmo com todas as ativas ligadas e bonus de equipe absurdo", () => {
-  for (const r of ["common", "rare", "epic", "mythic", "legendary", "super"] as const) {
+  for (const r of RARITIES8) {
     const h = hero(r, { id: `x-${r}`, stamina: 10 });
     const rt = createRuntime(bomberClass(r));
     for (const d of ABILITIES_BY_CLASS[rt.cls]) if (d.kind === "active") rt.active[d.id] = d.durationMs || 1000;
@@ -367,7 +368,8 @@ test("a categoria domina (bau > inimigo > bloco), como na 1.7.1, em qualquer cla
   const cands = buildCandidates(v, fieldFor(g, 0, 0), OPTS);
   for (const cls of CLASSES) {
     const st = newAIState();
-    assert.equal(chooseTarget(st, cands, 0, cls, 1)!.kind, "chest", cls);
+    // o Kai e o unico cacador: inimigo PROXIMO (<= 6 passos) vence o bau; as demais classes seguem baus > inimigos
+    assert.equal(chooseTarget(st, cands, 0, cls, 1)!.kind, cls === "kai" ? "enemy" : "chest", cls);
     assert.equal(chooseTarget(newAIState(), cands.filter((c) => c.kind !== "chest"), 0, cls, 1)!.kind, "enemy", cls);
   }
 });
@@ -457,7 +459,12 @@ test("seguranca da bomba: beco sem saida e detectado; espaco aberto nao", () => 
 test("score de classe e finito e a categoria preserva a ordem", () => {
   const base: CellTarget = { id: "x", kind: "chest", tx: 0, ty: 0, sx: 0, sy: 0, dist: 40, hp: 320, maxHp: 320, value: 40, hits: 99, resistant: true, mvp: true, adjTargets: 4, label: "" };
   for (const cls of CLASSES) for (const kind of ["chest", "enemy", "block"] as const) assert.ok(Number.isFinite(scoreCandidate(cls, { ...base, kind }, 0.5)));
-  for (const cls of CLASSES) assert.ok(scoreCandidate(cls, { ...base, kind: "chest" }, 1) > scoreCandidate(cls, { ...base, kind: "enemy", dist: 0, value: 80, hits: 1 }, 1), cls);
+  for (const cls of CLASSES) {
+    const enemyNear = scoreCandidate(cls, { ...base, kind: "enemy", dist: 0, value: 80, hits: 1 }, 1);
+    const enemyFar = scoreCandidate(cls, { ...base, kind: "enemy", dist: 7, value: 80, hits: 1 }, 1);
+    assert.ok(scoreCandidate(cls, { ...base, kind: "chest" }, 1) > enemyFar, `${cls}: inimigo alem do alcance nunca vence o bau`);
+    if (cls !== "kai") assert.ok(scoreCandidate(cls, { ...base, kind: "chest" }, 1) > enemyNear, cls);
+  }
 });
 
 // ---------- 15 operadores simulados (logica pura: IA + habilidades + combate, sem Phaser) ----------
@@ -468,9 +475,9 @@ test("simulacao headless: 15 operadores por 600 decisoes mantem invariantes e te
   const blockHp = new Map<string, { hp: number; maxHp: number }>();
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (grid[y][x] === 0 && Math.min(x, W - 1 - x) + Math.min(y, H - 1 - y) > 2 && rng() < 0.45) { grid[y][x] = 2; blockHp.set(`${x},${y}`, { hp: 12, maxHp: 12 }); }
   const chests = new Map<string, { hp: number; maxHp: number; base: number }>();
-  const rarities = ["common", "rare", "epic", "mythic", "legendary", "super"] as const;
+  const rarities = RARITIES8;
   const ops = Array.from({ length: 15 }, (_, i) => {
-    const r = rarities[i % 6];
+    const r = rarities[i % 8];
     const data = { id: `op${i}`, rarity: r, level: 1 + ((i * 7) % 30), stamina: 12, maxStamina: 12, power: 1 + (i % 5), melee: r === "legendary" };
     const pos = [[0, 0], [W - 1, 0], [0, H - 1], [W - 1, H - 1], [14, 0], [14, H - 1]][i % 6];
     return { data, x: pos[0], y: pos[1], ai: newAIState(), combo: newCombo(), rt: runtimeOf(data), sleep: false, rewards: 0, attacks: 0 };
@@ -556,4 +563,67 @@ test("simulacao headless: 15 operadores por 600 decisoes mantem invariantes e te
   assert.equal(chests.size >= 0, true);
   // cada bau so paga uma vez: recompensas ao destruir <= baus criados
   assert.ok(rewardsGiven <= [...brokenBy.values()].reduce((s, n) => s + n, 0) + 0, "sem recompensa duplicada");
+});
+
+// ---------- Kai (Incomum) e Aeon (Ancestral) ----------
+test("Kai: cacador de inimigos. Inimigo proximo vence o bau; alem de 6 passos o bau volta a ser a prioridade", () => {
+  const mk = (id: string, kind: CellTarget["kind"], dist: number): CellTarget => ({ id, kind, tx: 0, ty: 0, sx: 0, sy: 0, dist, hp: 10, maxHp: 10, value: 4, hits: 1, resistant: kind === "chest", mvp: false, adjTargets: 0, label: "" });
+  assert.equal(chooseTarget(newAIState(), [mk("c", "chest", 2), mk("e", "enemy", 6)], 0, "kai", 1)!.id, "e");
+  assert.equal(chooseTarget(newAIState(), [mk("c", "chest", 2), mk("e", "enemy", 7)], 0, "kai", 1)!.id, "c");
+  assert.equal(chooseTarget(newAIState(), [mk("c", "chest", 2), mk("e", "enemy", 1)], 0, "kira", 1)!.id, "c", "outras classes nao mudam");
+  const rt = createRuntime("kai"), h = hero("uncommon", { id: "kai1" });
+  const passive = bombSnapshot(20, 2, modifiersOf(rt, h));
+  assert.equal(bombDamageVs(passive, "enemy", false), 25);
+  assert.equal(bombDamageVs(passive, "chest", true), 20, "so inimigos");
+  rt.cd = {}; assert.equal(activate(rt, ABILITY_DEFS.kai_hunt, h), true);
+  const hunt = modifiersOf(rt, h);
+  assert.ok(Math.abs(hunt.enemyDmgMult - 1.25 * 1.35) < 1e-9 && hunt.enemyDmgMult <= LIMITS.enemyDmgMult[1]);
+  assert.equal(decideAbilities(createRuntime("kai"), hero("uncommon"), ctx({ enemiesNear: 1 })).length, 0, "comeca em recarga parcial");
+  const r2 = createRuntime("kai"); r2.cd = {};
+  assert.equal(decideAbilities(r2, hero("uncommon"), ctx()).length, 0, "sem inimigo por perto nao gasta");
+  assert.equal(decideAbilities(r2, hero("uncommon"), ctx({ enemiesNear: 1 }))[0].id, "kai_hunt");
+});
+
+test("Aeon: Reescrita so no nivel 10, bonus dentro dos limites e alcance da bomba no teto", () => {
+  const rt = createRuntime("aeon"); rt.cd = {};
+  const low = hero("ancestral", { id: "a1", level: 9, stamina: 20, maxStamina: 24 }), ok = { ...low, level: 10 };
+  assert.equal(isReady(rt, ABILITY_DEFS.aeon_rewrite, low), false);
+  assert.equal(isReady(rt, ABILITY_DEFS.aeon_rewrite, ok), true);
+  const base = { ...modifiersOf(rt, ok) };
+  assert.ok(Math.abs(base.dmgMult - 1.12) < 1e-9 && base.luckBonus === 0.2);
+  activate(rt, ABILITY_DEFS.aeon_rewrite, ok);
+  const m = modifiersOf(rt, ok);
+  assert.ok(m.dmgMult > 1.39 && m.dmgMult <= LIMITS.dmgMult[1]);
+  assert.ok(m.luckBonus <= LIMITS.luckBonus[1] && Math.abs(m.luckBonus - 0.4) < 1e-9);
+  assert.equal(bombRange(5, m), 5, "alcance 4 + 1 = 5, o teto");
+  assert.equal(ok.stamina, 17, "custa 3 de stamina");
+  assert.deepEqual(auraOf(rt, ok), { range: 6, dmg: 0.06, speed: 0.05 });
+  assert.equal(detectRadius(rt, ok), 8);
+  assert.equal(detectRadius(createRuntime("aeon"), ok), 7, "Intel: enxerga mais longe que todos os outros, menos a varredura do Vex");
+});
+
+test("Sincronia do Aeon: encurta so recargas correndo, nunca abaixo de zero, uma vez por aliado a cada 45 s", () => {
+  const def = ABILITY_DEFS.aeon_rewrite;
+  const mkAlly = (id: string, rarity: BomberLike["rarity"], cdLeft: number) => { const rt = createRuntime(bomberClass(rarity)); for (const d of ABILITIES_BY_CLASS[rt.cls]) if (d.kind === "active") rt.cd[d.id] = cdLeft; return { data: hero(rarity, { id }), rt }; };
+  const a = mkAlly("a", "legendary", 10000), b = mkAlly("b", "rare", 0), c = mkAlly("c", "mythic", 500);
+  const got = syncCooldowns(def, [a, b, c]);
+  assert.deepEqual(got, ["a", "c"], "quem esta com a habilidade pronta nao e beneficiado nem travado");
+  assert.equal(a.rt.cd.jax_flurry, 10000 - 15000 * 0.15);
+  assert.equal(c.rt.cd.kira_dash, 0, "limitado ao que resta");
+  assert.equal(b.rt.syncLockMs, 0);
+  assert.deepEqual(syncCooldowns(def, [a, c]), [], "bloqueio de 45 s: dois Aeons nao somam");
+  tickRuntime(a.rt, 250);
+  for (let i = 0; i < 200; i++) tickRuntime(a.rt, 250); // 50 s
+  assert.equal(a.rt.syncLockMs, 0);
+  assert.equal(syncCooldowns(def, [a]).length, 0, "recarga ja acabou: nada a encurtar");
+  // 1 h simulada: a recarga de um aliado nunca fica negativa e o ganho por hora tem teto
+  const al = mkAlly("z", "legendary", 15000); let shaved = 0;
+  for (let t = 0; t < 14400; t++) {
+    const before = al.rt.cd.jax_flurry ?? 0;
+    tickRuntime(al.rt, 250);
+    if (t % 240 === 0) { al.rt.cd.jax_flurry = 15000; } // o aliado usa a habilidade e recarrega
+    const b4 = al.rt.cd.jax_flurry!; syncCooldowns(def, [al]); shaved += b4 - al.rt.cd.jax_flurry!;
+    assert.ok(al.rt.cd.jax_flurry! >= 0 && before >= 0);
+  }
+  assert.ok(shaved <= Math.ceil(3600 / 45) * 15000 * 0.15 + 1e-6, `encurtado ${shaved}`);
 });
