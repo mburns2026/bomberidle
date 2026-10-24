@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Solana Slither.Idle ($SLITHERI) - v0.6</title>
+<meta name="description" content="Slither.io + Idle na Solana. Jogue direto no navegador.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐍</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#05070a;font-family:'Rajdhani',sans-serif;color:#fff}
+#game-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;touch-action:none}
+.hud{position:absolute;z-index:10}
+#top-left{top:15px;left:15px;display:flex;flex-direction:column;gap:8px}
+#minimap-card{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);border-radius:50%;width:110px;height:110px;overflow:hidden}
+#minimap{width:100%;height:100%;display:block}
+.tk{font:700 11px Orbitron,sans-serif;color:#14f195}.tk span{color:#fff}
+#leaderboard{top:15px;right:15px;min-width:190px;text-shadow:0 1px 3px #000}
+#leaderboard h3{font:700 15px Rajdhani,sans-serif;color:#fff;margin-bottom:4px;text-align:center}
+.lb{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:1px;color:#b7bcc7}.lb.me{color:#fff}
+#br{bottom:15px;right:20px;text-align:right;font-size:18px;font-weight:700;text-shadow:0 2px 4px #000}
+#controls{bottom:15px;left:15px;display:flex;flex-direction:column;gap:8px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;color:#fff;font:800 12px Orbitron,sans-serif;padding:9px 15px;cursor:pointer;text-decoration:none;background:linear-gradient(135deg,rgba(153,69,255,.4),rgba(20,241,149,.22));border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(12px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 6px 20px rgba(153,69,255,.25);transition:.2s}
+.btn:hover{transform:translateY(-2px);border-color:rgba(20,241,149,.85)}
+.btn.sec{background:rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.15)}.btn.on{background:linear-gradient(135deg,rgba(20,241,149,.5),rgba(153,69,255,.3));border-color:rgba(20,241,149,.9)}
+.bar{width:160px;height:8px;background:rgba(0,0,0,.5);border-radius:4px;overflow:hidden;border:1px solid rgba(255,255,255,.2)}
+#battery-bar{height:100%;width:100%;background:linear-gradient(90deg,#ff4757,#14f195);transition:width .3s}
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);z-index:100;display:none;align-items:center;justify-content:center}
+.modal{background:#0e111a;border:1px solid #9945ff;border-radius:16px;width:92%;max-width:600px;max-height:85vh;overflow:auto;padding:24px;position:relative}
+.close{position:absolute;top:14px;right:16px;background:none;border:0;color:#888;font-size:22px;cursor:pointer}
+.modal h2{font:700 18px Orbitron,sans-serif;color:#14f195;margin-bottom:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.item{background:rgba(255,255,255,.03);border:1px solid rgba(153,69,255,.25);border-radius:10px;padding:12px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+#toast{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(18,16,38,.95);border:1px solid #14f195;border-radius:8px;padding:8px 16px;font:700 13px Orbitron,sans-serif;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#feed{bottom:112px;left:15px;max-width:330px;display:flex;flex-direction:column;gap:4px;pointer-events:none}
+#feed div{background:rgba(10,12,20,.6);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(8px);border-radius:8px;padding:4px 10px;font-size:13px;animation:fi .3s}
+@keyframes fi{from{opacity:0;transform:translateX(-10px)}}
+.dbar{width:120px;height:5px;background:rgba(0,0,0,.5);border-radius:3px;overflow:hidden}.dbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f3ba2f,#14f195)}
+#boost-hud{bottom:118px;right:20px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;text-shadow:0 1px 3px #000;font-size:12px;color:#b7bcc7;text-align:right;max-width:280px}
+#boost-btn{display:none;padding:12px 26px;font-size:13px;touch-action:none}
+#warn{position:absolute;inset:0;z-index:5;pointer-events:none;box-shadow:inset 0 0 140px 50px rgba(255,40,70,.65);opacity:0}
+#joy{display:none;bottom:130px;left:25px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(8px);touch-action:none}
+#joy-k{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(20,241,149,.35);border:1px solid rgba(20,241,149,.8);pointer-events:none}
+@media(pointer:coarse){#boost-hud{left:auto;right:18px;bottom:90px;transform:none}#feed{display:none}#joy{display:block}#boost-btn{display:inline-flex}}
+.qrow{margin:14px 0}.qrow span{display:flex;justify-content:space-between;font-size:14px}.qrow em{font-style:normal;color:#14f195}.qrow .dbar{width:100%;height:8px;margin-top:5px}
+.tut li{margin:10px 0 10px 18px;line-height:1.5;color:#cbd0dc}
+</style>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+<div id="toast"></div>
+<div id="warn"></div>
+
+<div id="top-left" class="hud">
+  <div id="minimap-card"><canvas id="minimap" width="110" height="110"></canvas></div>
+  <div class="tk"><span data-i="bal">tSLITHERI:</span> <span id="balance-display">0.00</span></div>
+  <div class="tk" style="color:#ff4757"><span data-i="brn">Burned 🔥:</span> <span id="burn-display">0</span></div>
+  <div class="tk"><span data-i="dly">Daily rewards:</span> <span id="daily-display">0</span></div><div class="dbar"><i id="daily-bar"></i></div>
+  <div class="tk" style="color:#f3ba2f"><span data-i="afk">AFK farm:</span> <span id="afk-amt">0.00</span> <button class="btn" id="afk-claim-btn" style="padding:3px 10px;font-size:10px" data-i="afkc">COLLECT</button></div>
+  <div class="tk" id="net" style="font-size:10px;opacity:.85"></div>
+</div>
+<div id="leaderboard" class="hud"><h3 data-i="lb">LEADERBOARD</h3><div id="leader-list"></div></div>
+<div id="br" class="hud">
+  <div><span data-i="len">Your length:</span> <span id="snake-length">120</span></div>
+  <div style="font-size:14px;color:#aaa"><span data-i="rank">Your rank:</span> <span id="snake-rank" style="color:#f3ba2f">#1</span></div>
+  <div style="font-size:13px;color:#f3ba2f"><span data-i="stk">Kill streak:</span> <span id="streak">0</span></div>
+</div>
+<div id="joy" class="hud"><div id="joy-k"></div></div>
+<div id="feed" class="hud"></div>
+<div id="boost-hud" class="hud"><button class="btn" id="boost-btn" data-i="bb">⚡ BOOST</button><div class="dbar"><i id="en-bar" style="width:100%"></i></div><small data-i="bh">Hold left click / SPACE · long boost burns 0.1 tSLITHERI/s</small></div>
+<div id="controls" class="hud">
+  <div class="btns">
+    <button class="btn" id="bot-btn">🤖 AUTO-BOT: OFF</button>
+    <select data-lang-select aria-label="Language"></select>
+    <button class="btn sec" id="shop-btn" data-i="shop">🛒 SHOP</button>
+    <button class="btn sec" id="snakes-btn" data-i="snk">🐍 COBRAS</button>
+    <button class="btn sec" id="info-btn" data-i="info">📜 INFO</button>
+    <button class="btn sec" id="quest-btn" data-i="qb">🎯 QUESTS</button><button class="btn sec" id="mute-btn">🔊</button><button class="btn sec" id="help-btn">?</button>
+    <button class="btn sec" data-wallet-btn>🔗 Connect Phantom</button>
+    <a class="btn sec" href="index.html" style="text-decoration:none" data-i="site">🏠 SITE</a>
+    <a class="btn sec" data-soc="dc" href="#" rel="noopener">💬</a>
+  </div>
+  <div class="bar"><div id="battery-bar"></div></div>
+</div>
+
+<div id="shop-modal" class="overlay"><div class="modal">
+  <button class="close" data-close="shop-modal">✕</button>
+  <h2 data-i="sh">$SLITHERI SHOP</h2>
+  <p style="color:#aaa;font-size:13px" data-i="shd">Demo balance: not on-chain yet.</p>
+  <div class="grid">
+    <div class="item"><div style="font-size:28px">⚡</div><b data-i="bat">Battery 100%</b><span class="tk">200 tSLITHERI</span><button class="btn" id="recharge-btn" data-i="rech">Recharge</button></div>
+    <div class="item"><div style="font-size:28px">🎨</div><b data-i="skins">Skins &amp; VIP</b><a class="btn" href="store.html" data-i="gostore">Open store</a></div>
+  </div>
+</div></div>
+<div id="snakes-modal" class="overlay"><div class="modal">
+  <button class="close" data-close="snakes-modal">✕</button>
+  <h2 data-i="snkh">🐍 SNAKES &amp; AFK FARM</h2>
+  <p style="color:#aaa;font-size:13px" data-i="snkd">Each snake earns tokens on its own over time, even with the game closed — press "COLLECT" at the top of the screen now and then. Upgrade a snake to make it earn more. AFK farming is limited to part of the daily cap, so active play stays the main path.</p>
+  <div class="item" style="margin:14px 0;flex-direction:row;justify-content:space-between;text-align:left">
+    <div><b data-i="snkg">🧬 Spin capsule</b><div style="font-size:12px;color:#aaa" data-i="snkgd">Rolls a new snake (common to mythic)</div></div>
+    <button class="btn" id="gacha-btn">400 tSLITHERI</button>
+  </div>
+  <div id="snake-list" class="grid"></div>
+</div></div>
+<div id="info-modal" class="overlay"><div class="modal">
+  <button class="close" data-close="info-modal">✕</button>
+  <h2 data-i="ih">Solana Slither.Idle</h2>
+  <p style="color:#ccc;font-size:14px;line-height:1.6" data-i="ip">Demo version. Tokenomics and on-chain withdrawals (Phantom/Solflare wallet) are planned for upcoming versions.</p>
+</div></div>
+
+<div id="quest-modal" class="overlay"><div class="modal">
+  <button class="close" data-close="quest-modal">✕</button><h2 data-i="qh">DAILY QUESTS</h2><div id="quest-list"></div>
+  <p class="tk" style="margin-top:14px"><span data-i="qpts">Airdrop points (preview):</span> <span id="pts">0</span></p>
+  <p style="color:#8d95a8;font-size:12px;margin-top:6px" data-i="qnote">Preview only: official points are counted by our server once the backend is live.</p>
+</div></div>
+<div id="tut-modal" class="overlay"><div class="modal">
+  <h2 data-i="tuh">HOW TO PLAY</h2>
+  <ul class="tut"><li data-i="tu1">🖱️ Move: your snake follows the mouse (or your finger/joystick).</li><li data-i="tu2">🪙 Eat coins to grow and earn tSLITHERI (a daily cap applies).</li><li data-i="tu3">⚡ Hold left click / SPACE to boost. Short bursts are free; long boosts burn tokens.</li><li data-i="tu4">💀 Touch another snake's body or the red wall and you die. Make rivals hit your body to eliminate them.</li></ul>
+  <button class="btn" id="tut-go" data-i="tub" style="margin-top:12px">START PLAYING</button>
+</div></div>
+<script src="i18n.js"></script>
+<script src="skins.js"></script>
+<script src="save.js"></script>
+<script src="config.js"></script>
+<script src="wallet.js"></script>
+<script src="api.js"></script>
+<script>
+const CONFIG = {WORLD: 7000, FOODS: 3000, MAXF: 4500, RIVALS: 24, SEG: 6, API_URL: null, TOKEN_MINT: null};
+const $ = id => document.getElementById(id);
+const canvas = $('game-canvas'), ctx = canvas.getContext('2d', {alpha: false}), mini = $('minimap').getContext('2d');
+const W = CONFIG.WORLD, WR = CONFIG.WORLD / 2, rnd = (a, b) => a + Math.random() * (b - a);
+const camera = {x: 0, y: 0, z: 1, w: innerWidth, h: innerHeight};
+const coinImage = new Image(); coinImage.src = 'coin.png'; // coloque coin.png na mesma pasta do index.html
+
+const player = {x: W/2, y: W/2, angle: 0, speed: 3.6, radius: 14, length: 120, score: 120, tokens: 0, segments: [], n: 0,
+  autoBot: false, invulnUntil: 0, get name() { return t('you'); }, sk: Save.skin()};
+let rivals = [], mouseX = innerWidth/2, mouseY = innerHeight/2, botBattery = 100, totalBurned = 0, lastLB = 0;
+
+let MAGNET = Save.skin().magnet; let warned = 0;
+let mySnakes = [], snakeSpeedMult = 1, snakeMagnetBonus = 0;   // cobras do gacha: bonus da cobra ativa + farm AFK
+const FREE_ENERGY = 100, BOOST_COST = 0.1;   // FREE_ENERGY = 0 faz todo turbo custar tokens
+let energy = FREE_ENERGY, boostDebt = 0, dropAcc = 0, lastNoBoost = 0;
+function feed(msg) { const f = $('feed'), d = document.createElement('div'); d.textContent = msg; f.appendChild(d); while (f.children.length > 5) f.firstChild.remove(); setTimeout(() => d.remove(), 7000); }
+// Crescimento com retorno decrescente: o corpo tem teto suave (~1200); a pontuação (score) continua subindo para o ranking.
+function grow(o, a) { o.score += a; o.length += a * Math.max(.06, 1 - o.length / 1200); }
+function gain(x, kill) {   // todo ganho passa pelo teto diário; o bot rende 60% do jogo ativo
+  let rate, paid;
+  if (Save.online) { const b0 = Save.s.bal; rate = Math.max(0, 1 - Save.s.today / Save.CAP); Save.pendAdd(kill ? 'killVal' : player.autoBot ? 'bot' : 'val', x); paid = Save.s.bal - b0; }   // o servidor confirma depois
+  else { const r = Save.earn(x * (player.autoBot ? 0.6 : 1)); rate = r.rate; paid = r.paid; }
+  if (rate < .05 && warned < 2) { warned = 2; feed(t('fcap2')); } else if (rate < .25 && warned < 1) { warned = 1; feed(t('fcap')); }
+  return paid;
+}
+// ---- Juice: áudio sintetizado (sem arquivos), partículas, tremor de tela ----
+let AC = null, muted = false, paused = false; try { muted = localStorage.getItem('slitheri_mute') === '1'; } catch (e) {}
+function tone(f, d = .08, type = 'sine', v = .06, f2) {
+  if (muted) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume();
+    const o = AC.createOscillator(), g = AC.createGain(), n = AC.currentTime; o.type = type; o.frequency.setValueAtTime(f, n);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, n + d); g.gain.setValueAtTime(v, n); g.gain.exponentialRampToValueAtTime(.0001, n + d);
+    o.connect(g); g.connect(AC.destination); o.start(); o.stop(n + d);
+  } catch (e) {}
+}
+let lastCoin = 0;
+const SFX = {
+  coin: () => { const n = performance.now(); if (n - lastCoin > 70) { lastCoin = n; tone(700 + Math.random() * 300, .06, 'sine', .035); } },
+  kill: () => { tone(440, .12, 'square', .05, 880); setTimeout(() => tone(660, .16, 'square', .05, 1320), 90); },
+  die: () => tone(320, .6, 'sawtooth', .07, 50),
+  streak: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, .12, 'triangle', .07), i * 70)),
+  quest: () => [784, 988, 1175].forEach((f, i) => setTimeout(() => tone(f, .14, 'triangle', .07), i * 90)),
+  boost: () => tone(180, .18, 'sawtooth', .03, 420)
+};
+const parts = []; let shake = 0, streak = 0, wasBoost = false, lastFlush = 0;
+const prog = {coins: 0, kills: 0, boost: 0, play: 0, len: 0};
+function spark(x, y, c) { for (let i = 0; i < 3 && parts.length < 300; i++) parts.push({x, y, vx: rnd(-1.5, 1.5), vy: rnd(-1.5, 1.5), life: 18, max: 18, c, r: rnd(1.5, 3)}); }
+function burst(x, y, c, n) { for (let i = 0; i < n && parts.length < 300; i++) { const a = rnd(0, 6.28), s = rnd(1, 6); parts.push({x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 40, max: 40, c, r: rnd(2, 5)}); } }
+const E = {bal: $('balance-display'), burn: $('burn-display'), daily: $('daily-display'), dbar: $('daily-bar'), en: $('en-bar'), len: $('snake-length'), warn: $('warn')};
+function setTxt(el, v) { if (el._v !== v) { el._v = v; el.textContent = v; } }
+function setW(el, v) { v = Math.round(v); if (el._w !== v) { el._w = v; el.style.width = v + '%'; } }
+function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+addEventListener('resize', resize); resize();
+function toast(m){ const t = $('toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toast.id); toast.id = setTimeout(() => t.style.opacity = 0, 1800); }
+
+const ORB_COLORS = ['#ff4d4d','#ffd34d','#4dff88','#4dd2ff','#b44dff','#ff4dd2','#ffffff'];
+const ORBS = ORB_COLORS.map(c => {
+  const k = document.createElement('canvas'); k.width = k.height = 32; const g = k.getContext('2d');
+  const q = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  q.addColorStop(0, '#fff'); q.addColorStop(.25, c); q.addColorStop(.5, c + '66'); q.addColorStop(1, c + '00');
+  g.fillStyle = q; g.fillRect(0, 0, 32, 32); return k;
+});
+// Grade espacial: comer/buscar só olha células vizinhas (essencial para um mapa grande)
+const CELL = 220, grid = new Map(), drops = []; let foodCount = 0;
+function addFood(f) { const k = ((f.x / CELL) | 0) * 4096 + ((f.y / CELL) | 0); let c = grid.get(k); if (!c) grid.set(k, c = []); c.push(f); f.k = k; foodCount++; }
+function delFood(f) { const c = grid.get(f.k), i = c.indexOf(f); if (i >= 0) { c[i] = c[c.length - 1]; c.pop(); } f.dead = true; foodCount--; }
+function addDrop(f) { addFood(f); drops.push(f); while (foodCount > CONFIG.MAXF && drops.length) { const q = drops.shift(); if (!q.dead) delFood(q); } }
+function nearFoods(x, y, R) {
+  const out = [], x0 = Math.max(0, ((x - R) / CELL) | 0), x1 = ((x + R) / CELL) | 0, y0 = Math.max(0, ((y - R) / CELL) | 0), y1 = ((y + R) / CELL) | 0;
+  for (let cx = x0; cx <= x1; cx++) for (let cy = y0; cy <= y1; cy++) { const c = grid.get(cx * 4096 + cy); if (c) for (let i = 0; i < c.length; i++) out.push(c[i]); }
+  return out;
+}
+function rndPt(m = 60) { const a = Math.random() * 6.28, d = Math.sqrt(Math.random()) * (WR - m); return [W/2 + Math.cos(a) * d, W/2 + Math.sin(a) * d]; }
+function newFood(x, y, big = Math.random() > .85) {
+  if (x === undefined) [x, y] = rndPt();
+  return {x, y, val: big ? 4 : 1, rad: big ? 10 : 5, col: Math.floor(Math.random() * ORB_COLORS.length)};
+}
+const SCHEMES = [['#ffffff','#cccccc'], ['#ff0000','#ffff00','#0000ff','#00ff00'], ['#2ed573','#1e90ff'], ['#ff4757','#ffa502']];
+const NAMES = ['Whoa','abcd','Kq','Mxxa','Sm0k3d','jcgonmor'];
+function makeRival(i) {
+  const [px, py] = rndPt(400);
+  const rv = {ta: 0, nt: 0, hunt: false, aggr: Math.random() < .5, name: NAMES[i % 6] + (i >= 6 ? i : ''), x: px, y: py, angle: rnd(0, 6.28), speed: rnd(2.8, 3.4),
+    radius: 14, length: 100 + Math.floor(Math.random()*250), segments: [], n: 0, sk: SKINS[Math.floor(Math.random() * SKINS.length)]};
+  rv.score = rv.length; return rv;
+}
+for (let i = 0; i < CONFIG.FOODS; i++) addFood(newFood());
+for (let i = 0; i < CONFIG.RIVALS; i++) rivals.push(makeRival(i));
+
+addEventListener('mousemove', e => { if (!player.autoBot) { mouseX = e.clientX; mouseY = e.clientY; } });
+const COARSE = matchMedia('(pointer:coarse)').matches;
+addEventListener('touchmove', e => { if (!player.autoBot && !COARSE) { mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; } }, {passive: true});
+const held = {mouse: false, key: false, btn: false};
+canvas.addEventListener('mousedown', e => { if (e.button === 0) held.mouse = true; });
+addEventListener('mouseup', e => { if (e.button === 0) held.mouse = false; });
+addEventListener('blur', () => { held.mouse = held.key = held.btn = false; });
+addEventListener('keydown', e => { if (e.code === 'Space') { held.key = true; e.preventDefault(); } });
+addEventListener('keyup', e => { if (e.code === 'Space') held.key = false; });
+const bb = $('boost-btn'); bb.addEventListener('pointerdown', e => { held.btn = true; e.preventDefault(); });
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => bb.addEventListener(ev, () => held.btn = false));
+{ // joystick virtual (aparece só em telas de toque)
+  const base = $('joy'), knob = $('joy-k'); let pid = null;
+  const set = e => { const r = base.getBoundingClientRect(); let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const m = Math.hypot(dx, dy), lim = r.width / 2;
+    if (m > lim) { dx *= lim / m; dy *= lim / m; } knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; if (m > 8 && !player.autoBot) { mouseX = canvas.width / 2 + dx * 20; mouseY = canvas.height / 2 + dy * 20; } };
+  base.addEventListener('pointerdown', e => { pid = e.pointerId; base.setPointerCapture(pid); set(e); });
+  base.addEventListener('pointermove', e => { if (e.pointerId === pid) set(e); });
+  ['pointerup', 'pointercancel'].forEach(ev => base.addEventListener(ev, () => { pid = null; knob.style.transform = 'none'; }));
+}
+
+// ---- Fundo hexagonal: um tile pré-renderizado repetido (rápido, rola junto com a câmera) ----
+const R = 44, TW = 132, TH = 76, RY = TH / Math.sqrt(3);
+const tile = document.createElement('canvas'); tile.width = TW; tile.height = TH;
+const tc = tile.getContext('2d'); tc.fillStyle = '#07090d'; tc.fillRect(0, 0, TW, TH);
+function hexPath(cx, cy, k) {
+  tc.beginPath();
+  for (let s = 0; s < 6; s++) { const a = s * Math.PI / 3; tc[s ? 'lineTo' : 'moveTo'](cx + R*k*Math.cos(a), cy + RY*k*Math.sin(a)); }
+  tc.closePath();
+}
+[[0,0],[TW,0],[0,TH],[TW,TH],[TW/2,TH/2],[TW/2,-TH/2],[TW/2,TH*1.5]].forEach(([cx, cy]) => {
+  const g = tc.createRadialGradient(cx, cy, 4, cx, cy, R);
+  g.addColorStop(0, '#1d2230'); g.addColorStop(1, '#10131a');
+  hexPath(cx, cy, 1); tc.fillStyle = g; tc.fill(); tc.lineWidth = 5; tc.strokeStyle = '#07090d'; tc.stroke();
+  hexPath(cx, cy, .9); tc.lineWidth = 1.5; tc.strokeStyle = '#2a3242'; tc.stroke();
+});
+const hexPattern = ctx.createPattern(tile, 'repeat');
+
+// ---- Bateria / bot ----
+function setBattery(v){ botBattery = Math.max(0, Math.min(100, v)); $('battery-bar').style.width = botBattery + '%'; }
+function setBot(on){ player.autoBot = on; $('bot-btn').textContent = t('bot') + ': ' + (on ? 'ON' : 'OFF'); $('bot-btn').classList.toggle('on', on); }
+$('bot-btn').onclick = () => { if (!player.autoBot && botBattery <= 0) return toast(t('tbat')); setBot(!player.autoBot); };
+
+let botT = null, botLock = 0, botNext = 0, botDir = 0, botFlee = 0; const botSkip = new Map();
+function updateBot(k, now) {
+  if (!player.autoBot) return;
+  setBattery(botBattery - 0.05 * k * (Save.s.vip ? 0.5 : 1));
+  if (botBattery <= 0) { setBot(false); toast(t('tbo')); return; }
+  if (now >= botNext) {   // decide a cada ~200ms (não a cada frame): evita ficar virando de um lado para o outro
+    botNext = now + 150 + Math.random() * 100; let tgt = null;
+    if (Math.hypot(player.x - W/2, player.y - W/2) > WR - 300) tgt = Math.atan2(W/2 - player.y, W/2 - player.x);
+    const fleeing = now < botFlee;   // fuga em curso: mantém a direção (sem ficar mudando de ideia)
+    if (tgt === null && !fleeing) {   // corpos de outras cobras perto e à frente: foge na direção oposta ao grupo
+      let n = 0, ax = 0, ay = 0;
+      for (const r of rivals) for (let i = 0; i < r.segments.length; i += 3) {
+        const s = r.segments[i], dx = s.x - player.x, dy = s.y - player.y;
+        if (dx * dx + dy * dy < 16900) { const a = Math.atan2(dy, dx) - player.angle; if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 1.4) { n++; ax += s.x; ay += s.y; } }
+      }
+      if (n) { tgt = Math.atan2(player.y - ay / n, player.x - ax / n); botFlee = now + 500; }
+    }
+    if (tgt === null && !fleeing) {   // comida: mantém o alvo até comer; se não chegar em 1,5s, ignora esse alvo por 5s
+      if (botT && now > botLock && !botT.dead) botSkip.set(botT, now + 5000);
+      if (!botT || botT.dead || now > botLock) {
+        let bd = Infinity; botT = null;
+        for (const f of nearFoods(player.x, player.y, 700)) {
+          if (f.noPay || (botSkip.get(f) || 0) > now || Math.hypot(f.x - W/2, f.y - W/2) > WR - 240) continue;
+          const dx = f.x - player.x, dy = f.y - player.y, an = Math.atan2(dy, dx) - player.angle, d = (dx * dx + dy * dy) * (1 + 1.5 * Math.abs(Math.atan2(Math.sin(an), Math.cos(an)))); if (d < bd) { bd = d; botT = f; }   // prefere comida à frente (evita meia-volta)
+        }
+        botLock = now + 1500; if (botSkip.size > 40) botSkip.clear();
+      }
+      tgt = botT ? Math.atan2(botT.y - player.y, botT.x - player.x) : Math.atan2(W/2 - player.y, W/2 - player.x) + (Math.random() - .5) * 1.5;   // sem comida por perto: segue para o centro
+    }
+    if (tgt !== null) botDir = tgt;
+  }
+  let d = botDir - player.angle; d = Math.atan2(Math.sin(d), Math.cos(d));
+  const near = botT && (botT.x - player.x) ** 2 + (botT.y - player.y) ** 2 < 8100, mt = near ? .24 : .11;   // vira mais rápido perto do alvo: sem órbitas
+  player.angle += Math.max(-mt, Math.min(mt, d)) * k;
+}
+
+// ---- Cobras ----
+function pushSeg(o) {
+  o.radius = (12 + Math.min(6, o.length / 300)) * (o.sk.thick || 1);   // engrossa conforme cresce
+  const l = o.segments[0];
+  if (!l || (o.x-l.x)**2 + (o.y-l.y)**2 >= CONFIG.SEG**2) {
+    o.segments.unshift({x: o.x, y: o.y, c: o.n++});   // c = id fixo: cores não "piscam" mais
+    if (o.segments.length > o.length / CONFIG.SEG) o.segments.pop();
+  }
+}
+function eat(o, isPlayer) {
+  const mg = isPlayer ? MAGNET + snakeMagnetBonus : 0, R = o.radius + mg + 24, x0 = Math.max(0, ((o.x - R) / CELL) | 0), x1 = ((o.x + R) / CELL) | 0, y0 = Math.max(0, ((o.y - R) / CELL) | 0), y1 = ((o.y + R) / CELL) | 0;
+  for (let cx = x0; cx <= x1; cx++) for (let cy = y0; cy <= y1; cy++) {
+    const c = grid.get(cx * 4096 + cy); if (!c) continue;
+    for (let i = c.length - 1; i >= 0; i--) {
+      const f = c[i], rr = o.radius + f.rad + 6 + mg;
+      if ((f.x - o.x) ** 2 + (f.y - o.y) ** 2 < rr * rr) {
+        grow(o, f.val * 2);
+        if (isPlayer) { if (!f.noPay) { gain(f.val * 0.1); if (!player.autoBot) prog.coins++; } SFX.coin(); spark(f.x, f.y, ORB_COLORS[f.col]); }
+        c[i] = c[c.length - 1]; c.pop(); f.dead = true; foodCount--; addFood(newFood());
+      }
+    }
+  }
+}
+function dropFood(o) {
+  for (let i = 0; i < o.segments.length; i += 3) { const f = newFood(o.segments[i].x + rnd(-8,8), o.segments[i].y + rnd(-8,8), true); if (o === player) f.noPay = true; addDrop(f); }
+}
+function killPlayer(why) {
+  burst(player.x, player.y, '#14f195', 40); shake = 12; SFX.die(); streak = 0; $('streak').textContent = 0;
+  dropFood(player); player.length = player.score = 120; player.segments = [];
+  [player.x, player.y] = rndPt(600); player.invulnUntil = performance.now() + 2500;
+  toast(why === 'wall' ? t('twall') : t('tdie'));
+}
+function killRival(i) {
+  const v = rivals[i]; burst(v.x, v.y, v.sk.colors[0], 30); shake = Math.max(shake, 6); SFX.kill();
+  dropFood(v); rivals[i] = makeRival(i); grow(player, 30);
+  const g = gain(Math.min(1, v.length / 400), true); feed(t('fk') + ' ' + v.name + (g > .005 ? '  +' + g.toFixed(2) : ''));
+  if (!player.autoBot) prog.kills++;
+  streak++; $('streak').textContent = streak;
+  const b = streak === 3 ? 50 : streak === 5 ? 100 : (streak >= 7 && streak % 2) ? 150 : 0;   // bônus em tamanho/pontuação, nunca em token
+  if (b) { grow(player, b); toast('🔥 ' + streak + ' ' + t('stkm') + ' +' + b); SFX.streak(); }
+}
+
+// IA: evita paredes e corpos, foge de jogador bem maior, caça (cortando caminho) se for maior, senão busca comida
+function think(r, now) {
+  if (now < r.nt) return; r.nt = now + 120 + Math.random() * 120; r.hunt = false;
+  if (Math.hypot(r.x - W/2, r.y - W/2) > WR - 280) { r.ta = Math.atan2(W/2 - r.y, W/2 - r.x); return; }
+  const lx = r.x + Math.cos(r.angle) * 70, ly = r.y + Math.sin(r.angle) * 70;
+  for (const o of [player, ...rivals]) { if (o === r) continue;
+    for (let i = 0; i < o.segments.length; i += 3) { const s = o.segments[i]; if ((s.x-lx)**2 + (s.y-ly)**2 < 1156) { r.ta = r.angle + (Math.random() < .5 ? 1.2 : -1.2); return; } } }
+  const dp = Math.hypot(player.x - r.x, player.y - r.y), safe = now < player.invulnUntil;
+  if (dp < 220 && player.length > r.length * 1.4) { r.ta = Math.atan2(r.y - player.y, r.x - player.x); return; }
+  if (!safe && dp < 380 && r.aggr && r.length > player.length * 1.1) { r.hunt = true; r.ta = Math.atan2(player.y + Math.sin(player.angle) * 70 - r.y, player.x + Math.cos(player.angle) * 70 - r.x); return; }
+  let bd = 450 * 450, bf = null;
+  for (const f of nearFoods(r.x, r.y, 450)) { const d = (f.x-r.x)**2 + (f.y-r.y)**2; if (d < bd) { bd = d; bf = f; } }
+  r.ta = bf ? Math.atan2(bf.y - r.y, bf.x - r.x) : r.angle + (Math.random() - .5) * 1.2;
+}
+function update(k, now) {
+  updateBot(k, now);
+  if (!player.autoBot) player.angle = Math.atan2(mouseY - canvas.height/2, mouseX - canvas.width/2);
+  // Boost: rajada curta grátis (energia); depois paga em tokens, 100% queimados. Custa um pouco de tamanho e solta orbes sem recompensa.
+  const want = (held.mouse || held.key || held.btn) && !player.autoBot && player.length > 80;
+  const free = energy > 1, pay = !free && Save.s.bal > 0.05;
+  player.boosting = want && (free || pay);
+  if (want && !free && !pay && now - lastNoBoost > 2500) { lastNoBoost = now; toast(t('tNb')); }
+  if (player.boosting && !wasBoost) SFX.boost(); wasBoost = !!player.boosting; if (player.boosting) shake = Math.max(shake, .8);
+  if (!player.autoBot) { prog.play += k / 60; if (player.boosting) prog.boost += k / 60; }
+  prog.len = Math.max(prog.len, player.length);
+  if (now - lastFlush > 2000) { lastFlush = now; flushProg(); }
+  let spd = player.speed * snakeSpeedMult;
+  if (player.boosting) {
+    spd *= 1.8;
+    if (free) energy = Math.max(0, energy - 30 * k / 60);
+    else { boostDebt += BOOST_COST * k / 60; if (boostDebt >= 0.1) { Save.burn(boostDebt); boostDebt = 0; } }
+    const loss = 3 * k / 60; player.length -= loss; player.score = Math.max(120, player.score - loss); dropAcc += loss;
+    if (dropAcc >= 3 && player.segments.length && foodCount < CONFIG.MAXF) {
+      dropAcc -= 3; const tl = player.segments[player.segments.length - 1], o = newFood(tl.x, tl.y, false); o.noPay = true; addDrop(o);
+    }
+  } else energy = Math.min(FREE_ENERGY, energy + 12 * k / 60);
+  player.x += Math.cos(player.angle) * spd * k; player.y += Math.sin(player.angle) * spd * k;
+  const dc = Math.hypot(player.x - W/2, player.y - W/2);
+  const wo = Math.max(0, Math.min(1, (dc - (WR - 380)) / 340)); if (E.warn._o !== wo.toFixed(2)) { E.warn._o = wo.toFixed(2); E.warn.style.opacity = E._o = wo.toFixed(2); }   // brilho vermelho ao se aproximar
+  if (dc >= WR - 14) { killPlayer('wall'); return; }
+  pushSeg(player); eat(player, true);
+  const zt = Math.max(.5, 1 / (1 + (player.length - 120) / 1000)); camera.z += (zt - camera.z) * .04 * k;   // zoom out ao crescer
+  camera.w = canvas.width / camera.z; camera.h = canvas.height / camera.z; camera.x = player.x - camera.w / 2; camera.y = player.y - camera.h / 2;
+
+  for (let ri = 0; ri < rivals.length; ri++) {
+    const r = rivals[ri]; think(r, now);
+    let d = r.ta - r.angle; d = Math.atan2(Math.sin(d), Math.cos(d)); r.angle += Math.max(-.09, Math.min(.09, d)) * k;
+    const sp = r.speed * (r.hunt ? 1.3 : 1);
+    r.x += Math.cos(r.angle) * sp * k; r.y += Math.sin(r.angle) * sp * k;
+    if (Math.hypot(r.x - W/2, r.y - W/2) > WR - 14) { burst(r.x, r.y, r.sk.colors[0], 20); dropFood(r); rivals[ri] = makeRival(ri); continue; }   // rival que bate na parede morre
+    pushSeg(r); eat(r, false);
+  }
+  for (const sn of [player, ...rivals]) if (sn.sk.fx && sn.segments.length && Math.random() < .12 * k) {   // efeitos das skins (fogo, gelo, estrelas…)
+    const s = sn.segments[(Math.random() * sn.segments.length) | 0], pal = Skins.FX[sn.sk.fx];
+    if (Math.abs(s.x - player.x) < camera.w / 2 + 60 && Math.abs(s.y - player.y) < camera.h / 2 + 60) spark(s.x, s.y, pal[(Math.random() * pal.length) | 0]);
+  }
+  const hit = 24 * 24, safe = now < player.invulnUntil;
+  for (let i = 0; i < rivals.length; i++) {
+    const r = rivals[i];
+    if (!safe) for (let s = 3; s < r.segments.length; s += 2) {
+      const g = r.segments[s];
+      if ((g.x-player.x)**2 + (g.y-player.y)**2 < hit) { killPlayer(); return; }
+    }
+    for (let s = 6; s < player.segments.length; s += 2) {
+      const g = player.segments[s];
+      if ((g.x-r.x)**2 + (g.y-r.y)**2 < hit) { killRival(i); break; }
+    }
+  }
+  setTxt(E.bal, Save.s.bal.toFixed(2)); setTxt(E.burn, Math.floor(Save.s.burned).toLocaleString(window.LANGLOC)); setTxt(E.daily, Math.floor(Save.s.today) + ' / ' + Save.CAP);
+  setW(E.dbar, Math.min(100, Save.s.today / Save.CAP * 100)); setW(E.en, energy / (FREE_ENERGY || 1) * 100); bb.classList.toggle('on', !!player.boosting);
+  setTxt(E.len, Math.floor(player.score));
+  if (now - lastLB > 250) { lastLB = now; updateLeaderboard(); }
+}
+function updateLeaderboard() {
+  const list = [{name: t('you'), score: Math.floor(player.score * 10), me: true}];
+  rivals.forEach(r => list.push({name: r.name, score: Math.floor(r.score * 10), me: false}));
+  list.sort((a, b) => b.score - a.score);
+  $('snake-rank').textContent = (list.findIndex(x => x.me) + 1) + ' ' + t('of') + ' ' + list.length;
+  $('leader-list').innerHTML = list.slice(0, 6).map((it, i) => `<div class="lb ${it.me ? 'me' : ''}"><span>#${i+1} ${it.name}</span><span>${it.score}</span></div>`).join('');
+}
+
+// ---- Render ----
+const SPR = {};
+function shade(hex, a) {
+  const n = parseInt(hex.slice(1), 16), t = a < 0 ? 0 : 255, q = Math.abs(a);
+  return 'rgb(' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round((t - v) * q + v)) + ')';
+}
+function sprites(color) {   // esfera sombreada suave, desenhada uma vez por cor
+  if (SPR[color]) return SPR[color];
+  const S = 32, c = document.createElement('canvas'); c.width = c.height = S; const b = c.getContext('2d'), g = b.createRadialGradient(S*.42, S*.38, 1, S/2, S/2, S/2);
+  g.addColorStop(0, shade(color, .28)); g.addColorStop(.62, color); g.addColorStop(1, shade(color, -.32));
+  b.fillStyle = g; b.beginPath(); b.arc(S/2, S/2, S/2, 0, 6.2832); b.fill();
+  return SPR[color] = c;
+}
+function drawSnake(sn, isPlayer, now) {
+  const sg = sn.segments, n = sg.length; if (!n) return;
+  const head = sg[0], r = sn.radius, sk = sn.sk, d = r * 2, m = r * 3;
+  if (Math.hypot(head.x - camera.x - camera.w / 2, head.y - camera.y - camera.h / 2) > Math.hypot(camera.w, camera.h) / 2 + sn.length + 150) return;   // fora da tela: não desenha
+  const vis = s => s.x > camera.x - m && s.x < camera.x + camera.w + m && s.y > camera.y - m && s.y < camera.y + camera.h + m;
+  const col = s => Skins.colorAt(sk, s.c, now);
+  const a0 = ctx.globalAlpha = (isPlayer && now < player.invulnUntil) ? .5 : 1;
+  ctx.lineCap = ctx.lineJoin = 'round';
+  const trace = (dx, dy, to) => { ctx.beginPath(); ctx.moveTo(sg[0].x + dx, sg[0].y + dy); for (let i = 2; i < to; i += 2) ctx.lineTo(sg[i].x + dx, sg[i].y + dy); };
+  if (n > 2) {
+    trace(4, 6, n); ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = d + 3; ctx.stroke();                       // sombra no chão
+    ctx.globalAlpha = a0 * (isPlayer && player.boosting ? .3 : .13);
+    trace(0, 0, n); ctx.strokeStyle = col(sg[0]); ctx.lineWidth = d + 18; ctx.stroke(); ctx.globalAlpha = a0;         // brilho (1 traçado, sem blur)
+  }
+  if (sk.tail && n > 8) { const a = sg[n - 1], b = sg[n - 4]; ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(Math.atan2(a.y - b.y, a.x - b.x)); Skins.drawTail(ctx, sk, r * .8, now); ctx.restore(); }
+  for (let i = n - 1; i >= 0; i--) {   // corpo: esferas, cauda afinando
+    const s = sg[i]; if (!vis(s)) continue;
+    const t = i / n, k = t > .65 ? 1 - (t - .65) / .35 * .55 : 1, rr = r * k * (i === 0 ? 1.1 : 1);
+    ctx.drawImage(sprites(col(s)), s.x - rr, s.y - rr, rr * 2, rr * 2);
+  }
+  if (sk.spikes) Skins.drawSpikes(ctx, sk, sg, r, vis);
+  if (n > 6) { trace(-r * .28, -r * .3, Math.floor(n * .65)); ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = r * .55; ctx.stroke(); }   // brilho ao longo do corpo
+  ctx.save(); ctx.translate(head.x, head.y); ctx.rotate(sn.angle);
+  Skins.drawHead(ctx, sk, r, now); Skins.eyes(ctx, sk, r);
+  ctx.restore();
+  ctx.font = 'bold 12px Rajdhani, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillText(sn.name, head.x, head.y + r + 20);
+  ctx.globalAlpha = 1;
+}
+let vgr = null, vgW = 0, vgH = 0;
+function render(now) {
+  ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  shake *= .9; if (shake < .05) shake = 0; const sx = (Math.random() - .5) * shake, sy = (Math.random() - .5) * shake;
+  ctx.save(); ctx.translate(canvas.width / 2 + sx, canvas.height / 2 + sy); ctx.scale(camera.z, camera.z); ctx.translate(-player.x, -player.y);
+  ctx.beginPath(); ctx.arc(W/2, W/2, WR, 0, 6.28); ctx.fillStyle = hexPattern; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,40,70,.12)'; ctx.lineWidth = 70; ctx.stroke(); ctx.strokeStyle = 'rgba(255,40,70,.28)'; ctx.lineWidth = 28; ctx.stroke(); ctx.strokeStyle = '#ff4757'; ctx.lineWidth = 8; ctx.stroke();
+  const ok = coinImage.complete && coinImage.naturalWidth > 0;
+  const gx0 = Math.max(0, ((camera.x - 30) / CELL) | 0), gx1 = ((camera.x + camera.w + 30) / CELL) | 0, gy0 = Math.max(0, ((camera.y - 30) / CELL) | 0), gy1 = ((camera.y + camera.h + 30) / CELL) | 0;
+  for (let cx = gx0; cx <= gx1; cx++) for (let cy = gy0; cy <= gy1; cy++) {
+    const c = grid.get(cx * 4096 + cy); if (!c) continue;
+    for (let i = 0; i < c.length; i++) {
+      const f = c[i], p = 1 + .12 * Math.sin(now / 280 + f.x), s = f.rad * 3.2 * p;
+      ctx.drawImage(ORBS[f.col], f.x - s/2, f.y - s/2, s, s);
+      if (f.val > 1 && !f.noPay && ok) { const q = f.rad * 2 * p; ctx.drawImage(coinImage, f.x - q/2, f.y - q/2, q, q); }
+    }
+  }
+  for (let i = parts.length - 1; i >= 0; i--) {   // partículas
+    const q = parts[i]; q.x += q.vx; q.y += q.vy; q.vx *= .96; q.vy *= .96;
+    if (--q.life <= 0) { parts.splice(i, 1); continue; }
+    ctx.globalAlpha = q.life / q.max; ctx.fillStyle = q.c; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 6.28); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  rivals.forEach(r => drawSnake(r, false, now)); drawSnake(player, true, now);
+  ctx.restore();
+  if (!vgr || vgW !== canvas.width || vgH !== canvas.height) { vgW = canvas.width; vgH = canvas.height; const cx = vgW / 2, cy = vgH / 2; vgr = ctx.createRadialGradient(cx, cy, Math.min(cx, cy) * .9, cx, cy, Math.max(cx, cy) * 1.5); vgr.addColorStop(0, 'rgba(0,0,0,0)'); vgr.addColorStop(1, 'rgba(0,0,0,.55)'); }
+  ctx.fillStyle = vgr; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const sc = 110 / W; mini.clearRect(0, 0, 110, 110);
+  mini.fillStyle = '#ff4757'; rivals.forEach(r => { mini.beginPath(); mini.arc(r.x*sc, r.y*sc, 2, 0, 6.28); mini.fill(); });
+  mini.fillStyle = '#14f195'; mini.beginPath(); mini.arc(player.x*sc, player.y*sc, 3.5, 0, 6.28); mini.fill();
+}
+
+// ---- UI ----
+$('shop-btn').onclick = () => $('shop-modal').style.display = 'flex';
+$('info-btn').onclick = () => $('info-modal').style.display = 'flex';
+
+// ---- Cobras: gacha, selecao, upgrade, farm AFK ----
+// Online: o servidor decide e devolve o estado novo. Offline: regras locais de demonstração. (Antes só existia em store.html: os botões de cobra quebravam aqui.)
+async function act(online, local) {
+  if (!Save.online) return local();
+  try { Save.setOnline(await online()); return 'ok'; } catch (e) { return e.code || 'err'; }
+}
+const RARITY_COLOR = {common: '#9aa3b8', rare: '#4dd2ff', epic: '#b44dff', legendary: '#f3ba2f', mythic: '#ff4d6d'};
+const RARITY_NAME = {common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary', mythic: 'Mythic'};   // traduzido na hora de desenhar (rname)
+const rname = id => ({common: 'rcom', rare: 'rrar', epic: 'repi', legendary: 'rleg', mythic: 'rmyt'})[id] ? t(({common: 'rcom', rare: 'rrar', epic: 'repi', legendary: 'rleg', mythic: 'rmyt'})[id]) : RARITY_NAME[id];
+async function refreshSnakes() {
+  mySnakes = Save.online ? (await Api.call('/snakes')).list : Save.s.snakes;
+  applyActiveSnake(); renderSnakeList();
+}
+function applyActiveSnake() {
+  const id = Save.s.activeSnake, sn = mySnakes.find(x => x.id === id);
+  snakeSpeedMult = sn ? 1 + sn.speed / 100 : 1; snakeMagnetBonus = sn ? sn.magnet : 0;
+}
+function renderSnakeList() {
+  const activeId = Save.s.activeSnake;
+  $('snake-list').innerHTML = mySnakes.length ? mySnakes.map(sn => {
+    const price = Math.round(80 * Math.pow(1.5, sn.lvl)), active = sn.id === activeId;
+    return '<div class="item" style="border-color:' + RARITY_COLOR[sn.rarity] + '66">' +
+      '<div style="font-size:24px">🐍</div><b style="color:' + RARITY_COLOR[sn.rarity] + '">' + rname(sn.rarity) + ' · ' + t('snklv') + ' ' + sn.lvl + '</b>' +
+      '<div style="font-size:12px;color:#aaa">' + t('snkfarm') + ': ' + sn.afk + '/h · ' + t('snkspd') + ' +' + sn.speed + '% · ' + t('snkmag') + ' +' + sn.magnet + '</div>' +
+      '<button class="btn' + (active ? ' on' : '') + '" data-select="' + sn.id + '">' + (active ? t('snkon') : t('snkpilot')) + '</button>' +
+      (sn.lvl >= 10 ? '<button class="btn sec" disabled>' + t('snkmax') + '</button>' : '<button class="btn sec" data-upgrade="' + sn.id + '">⬆ ' + price + ' tSLITHERI</button>') + '</div>';
+  }).join('') : '<p style="color:#888;grid-column:1/-1;text-align:center;padding:20px 0">' + t('snknone') + '</p>';
+}
+$('snakes-btn').onclick = async () => { $('snakes-modal').style.display = 'flex'; await refreshSnakes(); };
+$('gacha-btn').onclick = async () => {
+  const r = await act(() => Api.call('/gacha', {}), () => Save.gacha());
+  if (r === 'ok' || (r && r.ok)) { toast(t('snkn')); await refreshSnakes(); }
+  else toast(r === 'rate' ? t('trate') : (r && r.err === 'poor') || r === 'poor' ? t('tpoor') : t('terr'));
+};
+$('snake-list').onclick = async e => {
+  const sel = e.target.closest('[data-select]'), upg = e.target.closest('[data-upgrade]');
+  if (sel) { await act(() => Api.call('/snake/select', {id: +sel.dataset.select}), () => Save.selectSnake(+sel.dataset.select)); applyActiveSnake(); renderSnakeList(); }
+  else if (upg) {
+    const r = await act(() => Api.call('/snake/upgrade', {id: +upg.dataset.upgrade}), () => Save.upgradeSnake(+upg.dataset.upgrade));
+    if (r === 'ok' || (r && r.ok)) { toast(t('snku')); await refreshSnakes(); } else toast(r === 'max_level' ? t('snkm') : r === 'rate' ? t('trate') : (r && r.err === 'poor') || r === 'poor' ? t('tpoor') : t('terr'));
+  }
+};
+function afkPreview() { return Save.online ? (() => { const rate = mySnakes.reduce((a, x) => a + x.afk, 0), h = Math.min(24, Math.max(0, (Date.now() - (Save.s.afkAt || Date.now())) / 36e5)); return Math.max(0, Math.min(rate * h * Math.max(0, 1 - Save.s.today / Save.CAP), Save.CAP - Save.s.today, Save.CAP * (Save.s.afkShare || 0.4) - (Save.s.afkToday || 0))); })() : Save.farmPreview(); }
+setInterval(() => setTxt($('afk-amt'), afkPreview().toFixed(2)), 3000);
+$('afk-claim-btn').onclick = async () => {
+  let claimed = 0;
+  if (Save.online) { try { const st = await Api.call('/farm/claim', {}); claimed = st.claimed || 0; Save.setOnline(st); } catch (e) { toast(e.code === 'rate' ? t('trate') : t('terr')); return; } }
+  else claimed = Save.farmClaim().claimed || 0;
+  if (claimed) toast('🌾 +' + claimed.toFixed(2) + ' tSLITHERI'); else toast(t('afkn'));
+  setTxt($('afk-amt'), '0.00');
+};
+addEventListener('apistate', refreshSnakes); addEventListener('savechange', () => { if (!Save.online) { mySnakes = Save.s.snakes; applyActiveSnake(); } });
+refreshSnakes();
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => $(b.dataset.close).style.display = 'none');
+function spend(c){ if (!Save.spend(c)) { toast(t('tpoor')); return false; } return true; }
+document.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => {
+  const [n, c] = b.dataset.buy.split('|');
+  if (spend(+c)) { totalBurned += c * .5; $('burn-display').textContent = Math.floor(totalBurned).toLocaleString(window.LANGLOC); toast(t('tbuy')); }
+});
+$('recharge-btn').onclick = () => {
+  if (Save.online) { Api.call('/shop', {item: 'battery'}).then(st => { Save.setOnline(st); setBattery(100); toast(t('tb100')); }).catch(e => { if (e.code === 'poor') toast(t('tpoor')); }); return; }
+  if (spend(200)) { setBattery(100); toast(t('tb100')); }
+};
+
+let last = performance.now();
+function loop(now) {
+  const k = Math.min((now - last) / 16.667, 3); last = now;
+  if (!paused) update(k, now); render(now); requestAnimationFrame(loop);
+}
+addEventListener('langchange', () => { setBot(player.autoBot); updateLeaderboard(); renderQuests(); renderSnakeList(); });
+addEventListener('savechange', () => { const k = Save.skin(); if (player.sk !== k) { player.sk = k; MAGNET = k.magnet; } });   // skin comprada/sincronizada vale na hora
+document.querySelectorAll('[data-soc="dc"]').forEach(a => { const u = SITE.SOCIAL.dc; if (u) { a.href = u; a.target = '_blank'; } else a.style.display = 'none'; });
+// ---- UI: missões, som, tutorial ----
+function renderQuests() {
+  const q = Save.s.q, L = {coins: t('qc'), kills: t('qk'), boost: t('qbo'), play: t('qp'), len: t('ql')};
+  $('quest-list').innerHTML = Save.pick().map(d => { const v = Math.min(q[d.id], d.t), done = q.done.includes(d.id);
+    return '<div class="qrow"><span><b>' + L[d.id] + '</b><em>' + (done ? t('qdone') : Math.floor(v) + ' / ' + d.t) + '</em></span><div class="dbar"><i style="width:' + (v / d.t * 100) + '%"></i></div></div>'; }).join('');
+  $('pts').textContent = Save.s.pts;
+}
+let syncing = false;
+async function flushOnline() {   // envia ao servidor só o que aconteceu desde o último envio; ele limita pelo tempo real
+  if (syncing || !Api.online) return; syncing = true;
+  const P = Save.pend, snap = {val: P.val, bot: P.bot, killVal: P.killVal, paidBoost: P.paidBoost, coinsN: prog.coins, kills: prog.kills, boost: prog.boost, play: prog.play, len: prog.len}, before = Save.s.q.done.length;
+  try {
+    const st = await Api.call('/sync', snap);
+    for (const k of ['val', 'bot', 'killVal', 'paidBoost']) P[k] = Math.max(0, P[k] - snap[k]);
+    for (const k of ['coins', 'kills', 'boost', 'play']) prog[k] = Math.max(0, prog[k] - snap[k === 'coins' ? 'coinsN' : k]);
+    Save.setOnline(st); renderQuests();
+    if (Save.s.q.done.length > before) { toast(t('qok')); SFX.quest(); }
+  } catch (e) { if (e.status === 401) Api.logout(); } finally { syncing = false; }
+}
+function flushProg() {
+  if (Save.online) return flushOnline();
+  const done = Save.prog(prog); prog.coins = prog.kills = prog.boost = prog.play = 0;
+  if (done.length) { toast(t('qok')); SFX.quest(); }
+}
+addEventListener('pagehide', flushProg);
+$('quest-btn').onclick = () => { flushProg(); renderQuests(); $('quest-modal').style.display = 'flex'; };
+const mb = $('mute-btn'); mb.textContent = muted ? '🔇' : '🔊';
+mb.onclick = () => { muted = !muted; try { localStorage.setItem('slitheri_mute', muted ? '1' : '0'); } catch (e) {} mb.textContent = muted ? '🔇' : '🔊'; if (!muted) tone(660, .08); };
+function openTut() { $('tut-modal').style.display = 'flex'; paused = true; }
+$('help-btn').onclick = openTut;
+$('tut-go').onclick = () => { $('tut-modal').style.display = 'none'; paused = false; try { localStorage.setItem('slitheri_tut', '1'); } catch (e) {} tone(600, .08); };
+let seenTut = false; try { seenTut = localStorage.getItem('slitheri_tut') === '1'; } catch (e) {}
+if (!seenTut) openTut();
+function paintNet() { const el = $('net'); el.style.display = Api.enabled() ? '' : 'none'; el.textContent = Api.online ? t('net1') : t('net0'); }
+addEventListener('apistate', paintNet); addEventListener('langchange', paintNet); paintNet();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

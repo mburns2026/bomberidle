@@ -1,0 +1,15 @@
+name = "slither-idle-api"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "slither"
+database_id = "COLE_AQUI_O_ID_QUE_O_COMANDO_MOSTRAR"
+migrations_dir = "migrations"
+
+[vars]
+TESTNET = "1"                                   # "1" = rede de teste (faucet ligado). Em produção: "0"
+ALLOW_ORIGIN = "https://mburns2026.github.io,https://aistudiosgames.vercel.app"   # sites autorizados a chamar a API (separe por vírgula)
+
+# WD_MIN_AGE_H = "24"                          # idade mínima (horas) da conta para sacar; padrão 24. Use "0" só em testes

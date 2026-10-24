@@ -1,15 +1,16 @@
 {
-  "name": "bomber-idle-solana",
+  "name": "slither-idle-backend",
   "private": true,
-  "version": "1.7.1",
-  "workspaces": [
-    "server",
-    "client"
-  ],
+  "type": "module",
+  "dependencies": {
+    "@solana/web3.js": "^1.95.0",
+    "@solana/spl-token": "^0.4.8"
+  },
   "scripts": {
-    "dev:server": "npm run dev -w server",
-    "dev:client": "npm run dev -w client",
-    "build": "npm run build -w server && npm run build -w client",
-    "test": "npm test -w server && npm test -w client"
+    "test": "node --test --no-warnings \"tests/*.test.mjs\"",
+    "check": "node --check worker.js && node --check payout.mjs && node --check save.js && node --check api.js"
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }

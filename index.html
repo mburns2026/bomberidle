@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i="ti">Solana Slither.Idle — $SLITHERI</title>
+<meta name="description" content="Slither.io + Idle on Solana. Play in your browser, let the Auto-Bot work and collect $SLITHERI.">
+<meta property="og:title" content="Solana Slither.Idle — $SLITHERI">
+<meta property="og:image" content="coin.png">
+<link rel="icon" href="coin.png">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--p:#9945ff;--g:#14f195;--bg:#05060a;--line:rgba(255,255,255,.1)}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:radial-gradient(60% 50% at 15% 0%,rgba(153,69,255,.28),transparent 70%),radial-gradient(50% 40% at 90% 25%,rgba(20,241,149,.14),transparent 70%),var(--bg);background-attachment:fixed;color:#e8eaf2;font:600 17px/1.65 Rajdhani,'PingFang SC','Microsoft YaHei',sans-serif;overflow-x:hidden}
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+nav,section,footer,.stats{position:relative;z-index:1}
+h1,h2,h3,.o{font-family:Orbitron,sans-serif}
+a{color:var(--g)}
+nav{position:sticky;top:12px;z-index:30;display:flex;align-items:center;gap:16px;width:min(1180px,94%);margin:14px auto 0;padding:10px 18px;border-radius:18px;background:rgba(12,14,24,.55);backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--line);box-shadow:0 10px 40px rgba(0,0,0,.45)}
+.logo{display:flex;align-items:center;gap:10px;font:900 15px Orbitron;color:#fff;text-decoration:none;margin-right:auto;letter-spacing:1px}
+.logo img{width:32px;height:32px;border-radius:50%;box-shadow:0 0 14px rgba(153,69,255,.8)}
+nav .l{display:flex;gap:18px}nav .l a{color:#c5cad8;text-decoration:none;font-size:15px;transition:.2s}nav .l a:hover{color:var(--g);text-shadow:0 0 12px var(--g)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;padding:11px 20px;font:800 12px Orbitron;letter-spacing:.5px;color:#fff;cursor:pointer;text-decoration:none;background:linear-gradient(135deg,rgba(153,69,255,.38),rgba(20,241,149,.22));border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(14px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 28px rgba(153,69,255,.28);transition:.25s}
+.btn:hover{transform:translateY(-2px);border-color:rgba(20,241,149,.85);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 10px 36px rgba(20,241,149,.35)}
+.btn.s{background:rgba(255,255,255,.07);box-shadow:inset 0 1px 0 rgba(255,255,255,.15)}
+.btn.dc{background:linear-gradient(135deg,rgba(88,101,242,.5),rgba(88,101,242,.18));border-color:rgba(114,137,255,.75);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 28px rgba(88,101,242,.4)}
+section{padding:90px 5%;max-width:1180px;margin:auto}
+h2{font-size:clamp(24px,4vw,36px);text-align:center;letter-spacing:1px;background:linear-gradient(90deg,#fff,var(--g) 60%,var(--p));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+h2::after{content:"";display:block;width:70px;height:3px;margin:12px auto 0;border-radius:3px;background:linear-gradient(90deg,var(--p),var(--g));box-shadow:0 0 14px var(--g)}
+.sub{text-align:center;color:#9aa3b8;margin:14px 0 40px}
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:30px;align-items:center;min-height:84vh}
+.hero h1{font-size:clamp(34px,6vw,68px);line-height:1.05;font-weight:900;background:linear-gradient(90deg,#14f195,#9945ff,#4dd2ff,#14f195);background-size:250% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shine 7s linear infinite}
+@keyframes shine{to{background-position:250% 0}}
+.hero p{margin:20px 0 22px;font-size:21px;color:#cbd0dc;max-width:560px}
+.hero .b{display:flex;gap:14px;flex-wrap:wrap}.hero .b .btn{padding:15px 28px;font-size:13px}
+.cd{display:inline-block;padding:6px 16px;border-radius:30px;font:700 13px Orbitron;color:#f3ba2f;background:rgba(243,186,47,.1);border:1px solid rgba(243,186,47,.4);backdrop-filter:blur(10px);margin:0 0 22px}
+.coinbox{position:relative;display:grid;place-items:center;perspective:900px;animation:fl 5s ease-in-out infinite}
+.coinbox::before{content:"";position:absolute;width:115%;aspect-ratio:1;border-radius:50%;background:conic-gradient(var(--p),var(--g),var(--p));filter:blur(70px);opacity:.45;animation:spin 10s linear infinite}
+.coin{position:relative;width:min(340px,70vw);border-radius:50%;filter:drop-shadow(0 0 40px rgba(153,69,255,.8));transition:transform .15s}
+@keyframes fl{50%{transform:translateY(-16px)}}@keyframes spin{to{transform:rotate(360deg)}}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;max-width:1180px;margin:0 auto;padding:0 5%}
+.stat{text-align:center;padding:18px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid var(--line);backdrop-filter:blur(14px)}
+.stat b{display:block;font:900 28px Orbitron;background:linear-gradient(90deg,var(--g),var(--p));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat small{color:#9aa3b8;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+.card{background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid var(--line);border-radius:18px;padding:22px;backdrop-filter:blur(16px);transition:.3s}
+.card:hover{transform:translateY(-5px);border-color:rgba(20,241,149,.55);box-shadow:0 14px 44px rgba(20,241,149,.15),0 0 0 1px rgba(153,69,255,.25)}
+.card h3{font-size:15px;color:#fff;margin-bottom:8px}.card p{color:#b9bfd0}
+.big{font:900 26px Orbitron;background:linear-gradient(90deg,#f3ba2f,#ffe38a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.dist{display:flex;height:38px;border-radius:12px;overflow:hidden;margin:28px 0 10px;font:800 12px Orbitron;color:#000;box-shadow:0 0 30px rgba(153,69,255,.3);border:1px solid var(--line)}
+.dist div{display:flex;align-items:center;justify-content:center}
+.ca{display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:24px;font-size:15px}
+.ca code{background:rgba(0,0,0,.45);border:1px solid var(--line);padding:8px 14px;border-radius:10px;word-break:break-all}
+.tl{border-left:2px solid transparent;border-image:linear-gradient(var(--p),var(--g)) 1;margin-left:10px;padding-left:28px;display:flex;flex-direction:column;gap:24px}
+.tl .it{position:relative;padding:14px 18px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line);backdrop-filter:blur(10px)}
+.tl .it::before{content:"";position:absolute;left:-39px;top:20px;width:16px;height:16px;border-radius:50%;background:#222;border:2px solid var(--p)}
+.tl .done::before{background:var(--g);box-shadow:0 0 14px var(--g)}.tl .now::before{background:#f3ba2f;box-shadow:0 0 14px #f3ba2f}
+.tl h3{font-size:15px;margin-bottom:4px}.tl p{color:#b9bfd0}
+.tag{font:800 10px Orbitron;padding:3px 10px;border-radius:20px;background:rgba(255,255,255,.1);margin-left:10px;vertical-align:middle;border:1px solid var(--line)}
+.done .tag{color:var(--g);border-color:rgba(20,241,149,.5)}.now .tag{color:#f3ba2f;border-color:rgba(243,186,47,.5)}
+details{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:12px;backdrop-filter:blur(12px);transition:.3s}
+details[open]{border-color:rgba(20,241,149,.4)}
+summary{cursor:pointer;font:700 14px Orbitron;color:#fff}details p,details li{margin-top:10px;color:#cbd0dc}details ul{margin-left:20px}
+.sim{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:20px}
+.sim label{display:flex;justify-content:space-between;gap:10px;font-size:15px;margin-top:14px}
+.sim input[type=range]{width:100%;accent-color:var(--g)}
+.out{display:grid;grid-template-columns:1fr 1fr;gap:10px}.out div{background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:12px;padding:12px}
+.out b{display:block;font:800 18px Orbitron;color:#f3ba2f}.out small{color:#94a3b8;font-size:13px}
+.ck{list-style:none;margin-top:18px}.ck li{padding:7px 0;color:#cbd0dc}.ck li::before{content:"✔ ";color:var(--g);text-shadow:0 0 10px var(--g)}
+.comm{text-align:center;padding:56px 5%;border-radius:26px;background:linear-gradient(135deg,rgba(88,101,242,.25),rgba(153,69,255,.12));border:1px solid rgba(114,137,255,.45);backdrop-filter:blur(16px);box-shadow:0 0 60px rgba(88,101,242,.2)}
+.comm .btn{padding:16px 34px;font-size:14px}
+.soc{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:18px 0}
+footer{text-align:center;padding:36px 5% 56px;color:#7c8497;font-size:14px;border-top:1px solid var(--line);background:rgba(5,6,10,.6)}
+.js .rv{opacity:0;transform:translateY(26px);transition:opacity .8s,transform .8s}.js .rv.in{opacity:1;transform:none}
+@media(max-width:760px){.hero{grid-template-columns:1fr;text-align:center;min-height:auto}.hero .b{justify-content:center}.hero p{margin-inline:auto}nav .l{display:none}.sim{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style></head><body>
+<canvas id="bg"></canvas>
+<nav>
+  <a class="logo" href="#"><img src="coin.png" alt="" onerror="this.style.display='none'">SLITHER.IDLE</a>
+  <div class="l"><a href="#como" data-i="n1">How it works</a><a href="#tokenomics" data-i="n2">Tokenomics</a><a href="#economia" data-i="n3">Economy</a><a href="#burn" data-i="n10">Burn tracker</a><a href="#airdrop" data-i="n9">Airdrop</a><a href="#roadmap" data-i="n4">Roadmap</a><a href="#whitepaper" data-i="n5">Whitepaper</a><a href="#community" data-i="n6">Community</a><a href="store.html" data-i="n7">Test Store</a></div>
+  <select data-lang-select aria-label="Language"></select>
+  <button class="btn s" data-wallet-btn>🔗 Connect Phantom</button>
+  <a class="btn" href="play.html" data-i="play">▶ PLAY</a>
+</nav>
+
+<section class="hero">
+  <div>
+    <h1 data-i="h1">Slither.io + Idle<br>on Solana</h1>
+    <p data-i="hp">Play right in your browser, let the Auto-Bot collect while you're away and stack <b>$SLITHERI</b>.</p>
+    <div class="cd" id="cd"></div>
+    <div class="b"><a class="btn" href="play.html" data-i="pn">▶ PLAY NOW</a><a class="btn s" href="#whitepaper" data-i="wp">📜 WHITEPAPER</a></div>
+  </div>
+  <div class="coinbox"><img class="coin" src="coin.png" alt="$SLITHERI coin"></div>
+</section>
+
+<div class="stats">
+  <div class="stat"><b>100M</b><small data-i="st1">Rewards pool</small></div>
+  <div class="stat"><b>0</b><small data-i="st2">Tokens minted by the game</small></div>
+  <div class="stat"><b>50% + 5%</b><small data-i="st3">Burned on shop &amp; withdrawals</small></div>
+  <div class="stat"><b>4</b><small data-i="st4">Languages</small></div>
+</div>
+
+<section id="como">
+  <h2 data-i="hw">HOW IT WORKS</h2><p class="sub" data-i="hws">Easy to learn, hard to put down.</p>
+  <div class="grid">
+    <div class="card"><h3 data-i="c1t">🐍 1. Play</h3><p data-i="c1">Steer your snake with the mouse (or finger), collect coins and take down rivals. Hold left click to boost.</p></div>
+    <div class="card"><h3 data-i="c2t">🤖 2. Auto-Bot</h3><p data-i="c2">Turn on Idle mode: the bot collects and dodges danger until its battery runs out.</p></div>
+    <div class="card"><h3 data-i="c3t">🛒 3. Level up</h3><p data-i="c3">Spend $SLITHERI in the shop: skins, coin magnet and battery recharge.</p></div>
+    <div class="card"><h3 data-i="c4t">🔗 4. Connect</h3><p data-i="c4">Connect your Phantom wallet to tie your progress to your address.</p></div>
+  </div>
+</section>
+
+<section id="tokenomics">
+  <h2 data-i="tk">TOKENOMICS</h2><p class="sub" data-i="tks">Initial proposal — subject to change before launch.</p>
+  <div class="grid">
+    <div class="card"><h3 data-i="ts">Total supply</h3><div class="big">1,000,000,000</div><p data-i="tsd">Standard pump.fun token supply</p></div>
+    <div class="card"><h3 data-i="tn">Network</h3><div class="big">Solana</div><p data-i="tnd">Low fees and fast transactions</p></div>
+    <div class="card"><h3 data-i="tl">Launch</h3><div class="big">pump.fun</div><p data-i="tld">Bonding curve, no presale</p></div>
+    <div class="card"><h3 data-i="tb">Burn</h3><div class="big">50% + 5%</div><p data-i="tbd">of shop purchases and withdrawals</p></div>
+  </div>
+  <div class="dist"><div style="width:10%;background:#f3ba2f">10%</div><div style="width:90%;background:linear-gradient(90deg,var(--p),var(--g))" data-i="dm">90% MARKET</div></div>
+  <div class="sub" style="margin:0" data-i="tlg"><b style='color:#f3ba2f'>10% Game rewards pool (100M)</b> · 90% liquidity curve / market</div>
+  <div class="ca"><span class="o" data-i="ct">CONTRACT:</span><code id="ca" data-i="cl">Will be announced at launch</code><button class="btn s" data-i="cp" onclick="navigator.clipboard.writeText(document.getElementById('ca').textContent)">COPY</button></div>
+</section>
+
+<section id="economia">
+  <h2 data-i="e">SUSTAINABLE ECONOMY</h2><p class="sub" data-i="es">Designed not to inflate: capped emission, continuous burning and recycling.</p>
+  <div class="grid">
+    <div class="card"><h3 data-i="e1t">🚫 Zero mint</h3><p data-i="e1">Fixed supply. The game cannot create new tokens.</p></div>
+    <div class="card"><h3 data-i="e2t">📉 Decreasing emission</h3><p data-i="e2">Daily budget = <b>0.1% of the remaining pool</b>. It shrinks on its own over time and does not grow with more players or bots.</p></div>
+    <div class="card"><h3 data-i="e3t">🔥 Shop burn</h3><p data-i="e3">Every purchase: <b>50% burned</b> and 50% returns to the rewards pool.</p></div>
+    <div class="card"><h3 data-i="e4t">🔥 Withdrawal fee</h3><p data-i="e4"><b>5%</b> of every on-chain withdrawal is burned.</p></div>
+  </div>
+  <div class="card" style="margin-top:20px">
+    <h3 data-i="st">🧮 SIMULATOR (1 year, 90M starting pool)</h3>
+    <div class="sim">
+      <div>
+        <label><span data-i="sl1">Active players/day</span> <b id="v1"></b></label><input type="range" id="dau" min="100" max="50000" step="100" value="5000">
+        <label><span data-i="sl2">Shop spend per player/day ($SLITHERI)</span> <b id="v2"></b></label><input type="range" id="sp" min="0" max="100" value="20">
+        <label><span data-i="sl3">% of rewards sold</span> <b id="v3"></b></label><input type="range" id="sl" min="0" max="100" value="50">
+      </div>
+      <div class="out">
+        <div><b id="o1"></b><small data-i="so1">pool remaining</small></div>
+        <div><b id="o2"></b><small data-i="so2">burned (% of supply)</small></div>
+        <div><b id="o3"></b><small data-i="so3">average sold/day</small></div>
+        <div><b id="o4"></b><small data-i="so4">reward/player on day 1</small></div>
+      </div>
+    </div>
+    <p style="font-size:14px;color:#94a3b8;margin-top:12px" data-i="sn">Simplified model, for illustration only. Not a price or earnings forecast.</p>
+  </div>
+  <h3 style="margin-top:28px;text-align:center;font-size:16px" data-i="tr">TRANSPARENCY (launch commitments)</h3>
+  <ul class="ck">
+    <li data-i="x1">Mint authority revoked: supply never increases.</li>
+    <li data-i="x2">100M pool held in a public wallet, address announced at launch.</li>
+    <li data-i="x3">On-chain burn counter visible on the site.</li>
+    <li data-i="x4">No presale: the token is born only on the game's launch day.</li>
+    <li data-i="x5">Balances and rewards validated server-side, with a daily limit per wallet.</li>
+  </ul>
+</section>
+
+<section id="burn">
+  <h2 data-i="bt">BURN TRACKER</h2><p class="sub" data-i="bts">Live data from the Solana network. Nothing here is typed by hand.</p>
+  <div class="grid">
+    <div class="card"><h3 data-i="bt1">Total burned</h3><div class="big" id="bt-burn">—</div><p id="bt-pct">—</p></div>
+    <div class="card"><h3 data-i="bt2">Current supply</h3><div class="big" id="bt-sup">—</div></div>
+    <div class="card"><h3 data-i="bt3">Rewards pool balance</h3><div class="big" id="bt-pool">—</div></div>
+  </div>
+  <p class="sub" id="bt-state" style="margin-top:20px"></p>
+  <p style="text-align:center"><a class="btn s" id="bt-link" href="#" target="_blank" rel="noopener" data-i="btl" style="display:none">View on Solscan</a></p>
+</section>
+
+<section id="airdrop">
+  <h2 data-i="ad">AIRDROP — SEASON 0</h2><p class="sub" data-i="ads">Rewarding the first real players. Proposal — final rules are published before the snapshot.</p>
+  <div class="grid">
+    <div class="card"><h3 data-i="a1t">Airdrop pool</h3><div class="big">10M</div><p data-i="a1"><b>10M $SLITHERI</b> taken from the rewards pool (1% of total supply).</p></div>
+    <div class="card"><h3 data-i="a2t">Snapshot</h3><div class="big">📸</div><p data-i="a2">Taken on launch day. Points earned before it count.</p></div>
+    <div class="card"><h3 data-i="a3t">Vesting</h3><div class="big">50 / 50</div><p data-i="a3"><b>50%</b> unlocked at start and <b>50%</b> after 14 days, to discourage instant dumping.</p></div>
+    <div class="card"><h3 data-i="a4t">Per-wallet cap</h3><div class="big">0.5%</div><p data-i="a4">No wallet receives more than <b>0.5%</b> of the airdrop (50,000).</p></div>
+  </div>
+  <div class="card" style="margin-top:20px"><h3 data-i="aht">HOW TO EARN POINTS</h3>
+    <ul class="ck"><li data-i="ap1">Connect your Phantom wallet — 20 pts (once)</li><li data-i="ap2">Play 10+ minutes in a day — 10 pts/day</li><li data-i="ap3">Complete daily quests — 5 pts each</li><li data-i="ap4">Join the Discord — 20 pts (verified by bot)</li><li data-i="ap5">Invite friends who play 3+ days — 25 pts each (max 10)</li></ul>
+    <p style="margin-top:14px;color:#f3ba2f" data-i="afm"><b>Your share = your points ÷ total points × 10M</b>, capped per wallet.</p></div>
+  <div class="card" style="margin-top:20px"><h3 data-i="art">FAIR-PLAY RULES</h3>
+    <ul class="ck"><li data-i="ar1">One wallet = one account. Multi-accounts and bots are excluded.</li><li data-i="ar2">At least 3 active days and 100 points to qualify.</li><li data-i="ar3">Only points validated by our server count. Progress saved in your browser during testing does not count.</li><li data-i="ar4">tSLITHERI test coins are not part of the airdrop and have no value.</li></ul></div>
+  <p class="sub" style="margin-top:24px;font-size:14px" data-i="an">Airdrops are not guaranteed, may change before the snapshot and promise no value. Check the tax rules in your country.</p>
+</section>
+
+<section id="roadmap">
+  <h2 data-i="rm">ROADMAP</h2><p class="sub" data-i="rms">From playable demo to on-chain economy.</p>
+  <div class="tl">
+    <div class="it done"><h3><span data-i="r1">Phase 1 — Playable demo</span><span class="tag" data-i="tg1">DONE</span></h3><p data-i="r1d">Slither-style engine, rivals, collisions, Auto-Bot, battery, demo shop.</p></div>
+    <div class="it done"><h3><span data-i="r2">Phase 2 — Website &amp; wallet</span><span class="tag" data-i="tg1">DONE</span></h3><p data-i="r2d">Official site, whitepaper and Phantom connection.</p></div>
+    <div class="it now"><h3><span data-i="r3">Phase 3 — Backend &amp; anti-fraud</span><span class="tag" data-i="tg2">SOON</span></h3><p data-i="r3d">Server-validated balances, earning limits, wallet login and Season 0 airdrop points.</p></div>
+    <div class="it"><h3><span data-i="r4">Phase 4 — Token on pump.fun</span><span class="tag" data-i="tg3">PLANNED</span></h3><p data-i="r4d">Token launches on the same day as the game, no presale. 100M pool in a public wallet.</p></div>
+    <div class="it"><h3><span data-i="r5">Phase 5 — On-chain economy</span><span class="tag" data-i="tg3">PLANNED</span></h3><p data-i="r5d">Reward claims, shop with burning and exclusive skins.</p></div>
+    <div class="it"><h3><span data-i="r6">Phase 6 — Multiplayer</span><span class="tag" data-i="tg3">PLANNED</span></h3><p data-i="r6d">Real-time arenas, circular world, boost and weekly rankings.</p></div>
+  </div>
+</section>
+
+<section id="whitepaper">
+  <h2 data-i="w">WHITEPAPER</h2><p class="sub" data-i="ws">Version 0.1 — project summary.</p>
+  <details open><summary data-i="w1t">1. Vision</summary><p data-i="w1">Combine the addictive gameplay of an arena snake game with idle mechanics, where progress continues while the player is away, using Solana as the layer for ownership and rewards.</p></details>
+  <details><summary data-i="w2t">2. Game mechanics</summary><ul><li data-i="w2a">Collecting coins grows your snake and earns $SLITHERI.</li><li data-i="w2b">Eliminating rivals gives a bonus and drops coins.</li><li data-i="w2c">The Auto-Bot plays by itself and drains battery; recharging costs $SLITHERI.</li><li data-i="w2d">Hold left click to boost: short bursts are free; longer boosts permanently burn tSLITHERI and a little length.</li></ul></details>
+  <details><summary data-i="w3t">3. Sustainable economy</summary><p data-i="w3">There is no new emission: rewards come from a finite pool of 100M $SLITHERI (10M reserved for the Season 0 airdrop, 90M for daily rewards). Each day releases at most 0.1% of what remains, split among players by score, so the cap does not depend on how many players or bots exist. Shop purchases burn 50% and return 50% to the pool; on-chain withdrawals burn 5%. As a result the pool only shrinks if emission exceeds what is recycled, and total supply only decreases. No model guarantees a price: value depends on real demand for the game.</p></details>
+  <details><summary data-i="w4t">4. Security &amp; anti-fraud</summary><p data-i="w4">Balances will only be valid when computed on the server, never in the browser. The Phantom wallet is used only to identify the player (no permission to move funds) and, later, to sign login messages.</p></details>
+  <details><summary data-i="w5t">5. Current status</summary><p data-i="w5">The game is a demo: the displayed balance is <b>not on-chain</b> and has no financial value.</p></details>
+  <details><summary data-i="w6t">6. Risks &amp; legal notice</summary><p data-i="w6">Crypto assets are volatile and can lose all value. This project promises no returns, is not investment advice and depends on each country's laws. Do your own research and only use money you can afford to lose.</p></details>
+</section>
+
+<section id="community"><div class="comm">
+  <h2 data-i="cm">JOIN THE COMMUNITY</h2><p class="sub" data-i="cms">Updates, launch-day alerts, feedback and weekly events.</p>
+  <a class="btn dc" data-soc="dc" href="#" data-i="cmb">💬 JOIN DISCORD</a>
+</div></section>
+
+<footer>
+  <div class="soc"><a class="btn dc" href="#" data-soc="dc" rel="noopener">💬 Discord</a><a class="btn s" href="#" data-soc="x" rel="noopener">𝕏 / Twitter</a><a class="btn s" href="#" data-soc="ig" rel="noopener">📸 Instagram</a><a class="btn s" href="#" data-soc="tt" rel="noopener">🎵 TikTok</a></div>
+  <p data-i="ft">© Solana Slither.Idle — Independent project, not affiliated with Solana Foundation, Phantom, pump.fun or slither.io.</p>
+</footer>
+<script src="i18n.js"></script>
+<script src="wallet.js"></script>
+<script src="config.js"></script>
+<script>
+
+// Fill in your real links:
+const SOCIAL = SITE.SOCIAL; // edite em config.js
+for (const [id, url] of Object.entries(SOCIAL)) document.querySelectorAll('[data-soc="' + id + '"]').forEach(a => { if (url) { a.href = url; a.target = '_blank'; } else a.style.opacity = .5; });
+const LAUNCH = SITE.LAUNCH; // edite em config.js
+function tick() {
+  const el = document.getElementById('cd');
+  if (!LAUNCH) { el.textContent = t('cd0'); return; }
+  const ms = new Date(LAUNCH) - Date.now();
+  if (ms <= 0) { el.textContent = t('cd1'); return; }
+  const d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, m = Math.floor(ms / 6e4) % 60, sc = Math.floor(ms / 1e3) % 60;
+  el.textContent = t('cd2') + ' ' + d + 'd ' + h + 'h ' + m + 'm ' + sc + 's';
+}
+tick(); setInterval(tick, 1000);
+
+const $i = id => document.getElementById(id), fmt = (n, d = 1) => n.toLocaleString(window.LANGLOC, {maximumFractionDigits: d});
+function sim() {
+  const dau = +$i('dau').value, sp = +$i('sp').value, sell = +$i('sl').value / 100;
+  let pool = 90e6, burned = 0, sold = 0;
+  for (let d = 0; d < 365; d++) {
+    const E = pool * 0.001, soldD = E * sell, S = Math.min(dau * sp, E - soldD);
+    pool += -E + 0.5 * S; burned += 0.5 * S + 0.05 * soldD; sold += soldD * 0.95;
+  }
+  $i('v1').textContent = fmt(dau, 0); $i('v2').textContent = sp; $i('v3').textContent = sell * 100 + '%';
+  $i('o1').textContent = fmt(pool / 1e6) + 'M (' + fmt(pool / 9e5, 0) + '%)';
+  $i('o2').textContent = fmt(burned / 1e6, 2) + 'M (' + fmt(burned / 1e7, 2) + '%)';
+  $i('o3').textContent = fmt(sold / 365, 0);
+  $i('o4').textContent = fmt(9e4 / dau, 1);
+}
+['dau', 'sp', 'sl'].forEach(id => $i(id).addEventListener('input', sim)); sim();
+
+addEventListener('langchange', () => { tick(); sim(); burnTick(); });
+
+// ---- Painel de queima: lê direto da Solana (sem números digitados à mão) ----
+async function rpc(method, params) {
+  const r = await fetch(SITE.RPC, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({jsonrpc: '2.0', id: 1, method, params})});
+  const j = await r.json(); if (j.error) throw new Error(j.error.message); return j.result;
+}
+async function burnTick() {
+  const o = id => document.getElementById(id), m = SITE.TOKEN_MINT;
+  if (!m) { o('bt-state').textContent = t('btw'); return; }
+  try {
+    const sup = (await rpc('getTokenSupply', [m])).value.uiAmount, burned = Math.max(0, SITE.SUPPLY - sup);
+    o('bt-burn').textContent = fmt(burned, 0); o('bt-pct').textContent = fmt(burned / SITE.SUPPLY * 100, 3) + '%'; o('bt-sup').textContent = fmt(sup, 0);
+    if (SITE.POOL_WALLET) {
+      const a = await rpc('getTokenAccountsByOwner', [SITE.POOL_WALLET, {mint: m}, {encoding: 'jsonParsed'}]);
+      o('bt-pool').textContent = fmt(a.value.reduce((n, x) => n + x.account.data.parsed.info.tokenAmount.uiAmount, 0), 0);
+    }
+    o('bt-state').textContent = ''; o('bt-link').href = 'https://solscan.io/token/' + m + (SITE.NETWORK === 'devnet' ? '?cluster=devnet' : ''); o('bt-link').style.display = '';
+  } catch (e) { o('bt-state').textContent = t('bte'); }
+}
+burnTick(); setInterval(burnTick, 60000);
+
+// ---- Efeitos visuais ----
+document.documentElement.classList.add('js');
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), {threshold: .12});
+document.querySelectorAll('section > h2, section > .sub, .hero > *, .card, .stat, .tl .it, details, .comm').forEach(el => { el.classList.add('rv'); io.observe(el); });
+const coin = document.querySelector('.coin');
+addEventListener('mousemove', e => { coin.style.transform = 'rotateY(' + ((e.clientX / innerWidth - .5) * 28) + 'deg) rotateX(' + (-(e.clientY / innerHeight - .5) * 28) + 'deg)'; });
+(function () {
+  const c = document.getElementById('bg'), x = c.getContext('2d');
+  if (matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  let w, h; const rs = () => { w = c.width = innerWidth; h = c.height = innerHeight; }; rs(); addEventListener('resize', rs);
+  const cols = ['#9945ff', '#14f195', '#4dd2ff', '#ff4dd2'];
+  const orbs = Array.from({length: 50}, () => ({x: Math.random() * w, y: Math.random() * h, r: Math.random() * 2 + 1, v: Math.random() * .3 + .1, c: cols[Math.random() * 4 | 0]}));
+  const snakes = cols.map(c => ({c, a: Math.random() * 6.28, x: Math.random() * w, y: Math.random() * h, t: []}));
+  (function f() {
+    x.clearRect(0, 0, w, h);
+    orbs.forEach(o => { o.y -= o.v; if (o.y < -5) { o.y = h + 5; o.x = Math.random() * w; } x.globalAlpha = .5; x.fillStyle = x.shadowColor = o.c; x.shadowBlur = 12; x.beginPath(); x.arc(o.x, o.y, o.r, 0, 6.28); x.fill(); });
+    x.shadowBlur = 0;
+    snakes.forEach(s => {
+      s.a += (Math.random() - .5) * .12; s.x += Math.cos(s.a) * 1.6; s.y += Math.sin(s.a) * 1.6;
+      if (s.x < 0 || s.x > w || s.y < 0 || s.y > h) s.a = Math.atan2(h / 2 - s.y, w / 2 - s.x);
+      s.t.unshift({x: s.x, y: s.y}); if (s.t.length > 60) s.t.pop();
+      s.t.forEach((p, i) => { x.globalAlpha = .22 * (1 - i / 60); x.fillStyle = s.c; x.beginPath(); x.arc(p.x, p.y, 9 * (1 - i / 90), 0, 6.28); x.fill(); });
+    });
+    requestAnimationFrame(f);
+  })();
+})();
+</script>
+</body>
+</html>
