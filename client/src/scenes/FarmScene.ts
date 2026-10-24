@@ -4,7 +4,7 @@ import { makeTextures } from "../art";
 import { MAPS, COLS, ROWS, MapDef, INSTANCES_PER_MAP, chestDropChance, blockHp, chestHpMult, enemyHp, mvpHp, hasMvp, mapProgress } from "../maps";
 import type { AbilityContext, AbilityDef, AbilityRuntime, BomberClass, CellTarget, WorldView } from "../game/bomberTypes";
 import { ABILITY_DEFS, AI_TUNING, BALANCE } from "../game/bomberConfig";
-import { activate, auraOf, bomberClass, clearTransient, consumeArmed, decideAbilities, detectRadius, modifiersOf, repairPulse, runtimeOf, setTeamBuff, tickRuntime } from "../game/bomberAbilities";
+import { activate, auraOf, bomberClass, clearTransient, consumeArmed, decideAbilities, detectRadius, modifiersOf, repairPulse, runtimeOf, setTeamBuff, syncCooldowns, tickRuntime } from "../game/bomberAbilities";
 import { blastCells, bombDamageVs, bombSnapshot, createRng, gainStamina, isResistantBlock, meleeDamage, newCombo, registerHit, rollCrit, spendStamina, type BombSnapshot, type ComboState } from "../game/bomberCombat";
 import { blacklist, bfsField, buildCandidates, chooseTarget, escapeSteps, hasEscape, newAIState, pathTo, recordAction, recordMove, reportProgress, resetAI, unstickStep, type AIState } from "../game/bomberAI";
 import { FxPool } from "../game/bomberFx";
@@ -22,8 +22,8 @@ const DIRS: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const SPAWNS: [number, number][] = [[0, 0], [COLS - 1, 0], [0, ROWS - 1], [COLS - 1, ROWS - 1], [14, 0], [14, ROWS - 1]];
 const key = (x: number, y: number) => `${x},${y}`;
 const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
-const CLASS_COLOR: Record<BomberClass, number> = { lyra: 0x55ffb0, titan: 0xff9a3c, vex: 0x39e6ff, kira: 0xdfe8ff, jax: 0xff3fd0, orion: 0xfff1b8 };
-const CLASS_CSS: Record<BomberClass, string> = { lyra: "#55ffb0", titan: "#ffb15a", vex: "#7df0ff", kira: "#dfe8ff", jax: "#ff9af0", orion: "#fff1b8" };
+const CLASS_COLOR: Record<BomberClass, number> = { lyra: 0x55ffb0, kai: 0xffa94d, titan: 0xff9a3c, vex: 0x39e6ff, kira: 0xdfe8ff, jax: 0xff3fd0, orion: 0xfff1b8, aeon: 0x7dffe9 };
+const CLASS_CSS: Record<BomberClass, string> = { lyra: "#55ffb0", kai: "#ffc27a", titan: "#ffb15a", vex: "#7df0ff", kira: "#dfe8ff", jax: "#ff9af0", orion: "#fff1b8", aeon: "#9ffff0" };
 const POSE_ATTACK = 4, POSE_BOMB = 5;
 
 interface Runtime {
@@ -455,7 +455,7 @@ export class FarmScene extends Phaser.Scene {
     const bd = bombDamage(d);
     const per = Math.max(1, Math.round((d.melee ? bd * BALANCE.meleeDmgFactor : bd) * m.dmgMult));
     const cands = buildCandidates(view, field, {
-      detectRadius: detectRadius(h.ab, d), dmgChest: per * m.chestDmgMult, dmgEnemy: per, dmgBlock: per,
+      detectRadius: detectRadius(h.ab, d), dmgChest: per * m.chestDmgMult, dmgEnemy: per * m.enemyDmgMult, dmgBlock: per,
       dmgBlockResistant: per * m.resistantDmgMult, resistantHp: BALANCE.resistantBlockHp, rewardScale: REWARD_SCALE,
     });
     const ratio = d.maxStamina > 0 ? d.stamina / d.maxStamina : 0;
@@ -545,6 +545,7 @@ export class FarmScene extends Phaser.Scene {
       modifiersOf(h.ab, h.data);
       this.abilityFx(h, def);
       if (def.id === "lyra_repair") this.lyraPulse(h, def.range);
+      if (def.cdSync) this.aeonSync(h, def);
     }
     const aura = auraOf(h.ab, h.data);
     if (aura) this.applyAura(h, aura);
@@ -568,7 +569,16 @@ export class FarmScene extends Phaser.Scene {
     }
   }
 
-  /** Bonus de equipe (Orion): quem esta no alcance recebe o bonus por ~1 s; sai de perto e ele some sozinho. Nao soma fontes. */
+  /** Sincronia do Aeon: encurta as recargas dos aliados proximos (limites em syncCooldowns). */
+  private aeonSync(h: Runtime, def: AbilityDef) {
+    const near = this.heroes.filter((o) => o !== h && Math.hypot(o.gx - h.gx, o.gy - h.gy) <= (def.cdSync?.range ?? 0));
+    for (const id of syncCooldowns(def, near.map((o) => ({ data: o.data, rt: o.ab })))) {
+      const o = near.find((r) => r.data.id === id);
+      if (o) this.fx.image({ texture: "fx_star", x: o.sprite.x, y: o.sprite.y - 6, tint: 0x7dffe9, scale: 0.3, toScale: 0.7, duration: 500, depth: 6, add: true });
+    }
+  }
+
+  /** Bonus de equipe (Orion e Aeon): quem esta no alcance recebe o bonus por ~1 s; sai de perto e ele some sozinho. Nao soma fontes. */
   private applyAura(h: Runtime, aura: { range: number; dmg: number; speed: number }) {
     const now = this.time.now;
     for (const o of this.heroes) {

@@ -62,7 +62,7 @@ interface HeroRef { lvl: HTMLElement; xp: HTMLElement; fill: HTMLElement; st: HT
 function effText(m: Modifiers): string {
   const p: string[] = [];
   const mult = (k: keyof Modifiers, label: string) => { if (Math.abs(m[k] - NEUTRAL_MODS[k]) > 0.005) p.push(`${label} ×${m[k].toFixed(2)}`); };
-  mult("dmgMult", "dano"); mult("speedMult", "veloc."); mult("regenMult", "regen."); mult("staminaCostMult", "custo");
+  mult("dmgMult", "dano"); mult("enemyDmgMult", "dano em inimigos"); mult("speedMult", "veloc."); mult("regenMult", "regen."); mult("staminaCostMult", "custo");
   if (m.luckBonus > 0.005) p.push(`sorte +${m.luckBonus.toFixed(2)}`);
   if (m.critChance > 0.005) p.push(`crítico ${Math.round(m.critChance * 100)}%`);
   if (m.blastRangeBonus > 0) p.push(`alcance +${m.blastRangeBonus}`);
@@ -500,8 +500,8 @@ const HUB: Record<string, () => void> = {
       "Use os $BOMBERSI para melhorar Stamina, Velocidade e Sorte de cada operador, ou para abrir Cápsulas de Recruta.",
     ]);
     sec("Classes e habilidades", [
-      "Cada operador tem uma classe de combate: Lyra (suporte), Titan (tanque explosivo), Vex (hacker de tesouros), Kira (velocidade), Jax (samurai) e Orion (híbrido supremo).",
-      "Cada classe tem uma habilidade passiva (sempre ligada) e uma ativa, que o operador usa sozinho quando faz sentido. A ativa libera no nível 3 (Ascensão do Orion, no nível 8) e tem recarga.",
+      "Cada operador tem uma classe de combate: Lyra (suporte), Kai (caçador de inimigos), Titan (tanque explosivo), Vex (hacker de tesouros), Kira (velocidade), Jax (samurai), Orion (híbrido supremo) e Aeon, o Ancestral, o topo dos BOMBERS.",
+      "Cada classe tem uma habilidade passiva (sempre ligada) e uma ativa, que o operador usa sozinho quando faz sentido. A ativa libera no nível 3 (Ascensão do Orion no 8, Reescrita da Grade do Aeon no 10) e tem recarga.",
       "Efeitos ativos e recargas valem só durante a sessão: ao recarregar a página eles recomeçam, e as recargas voltam parcialmente aquecidas.",
       "Habilidades não geram $BOMBERSI: elas mudam como o operador luta, se move e escolhe alvos. As recompensas dos baús e inimigos continuam as mesmas.",
     ]);

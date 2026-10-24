@@ -72,17 +72,17 @@ export function bombRange(power: number, mods: Modifiers): number {
   return Math.min(LIMITS.blastRangeMax, base + Math.round(clamp(mods.blastRangeBonus, 0, LIMITS.blastRangeBonus[1])));
 }
 
-export interface BombSnapshot { dmg: number; chestMult: number; resistMult: number; range: number; splash: number }
+export interface BombSnapshot { dmg: number; chestMult: number; resistMult: number; enemyMult: number; range: number; splash: number }
 export function bombSnapshot(baseBombDmg: number, power: number, mods: Modifiers): BombSnapshot {
   return {
     dmg: Math.max(1, Math.round(fin(baseBombDmg * mods.dmgMult, 1))),
-    chestMult: mods.chestDmgMult, resistMult: mods.resistantDmgMult,
+    chestMult: mods.chestDmgMult, resistMult: mods.resistantDmgMult, enemyMult: mods.enemyDmgMult,
     range: bombRange(power, mods), splash: Math.round(clamp(mods.splashRadius, 0, LIMITS.splashRadius[1])),
   };
 }
 /** Dano da bomba contra um tipo de alvo. */
 export function bombDamageVs(b: BombSnapshot, kind: "chest" | "enemy" | "block", resistant: boolean): number {
-  const m = kind === "chest" ? b.chestMult : kind === "block" && resistant ? b.resistMult : 1;
+  const m = kind === "chest" ? b.chestMult : kind === "enemy" ? b.enemyMult : kind === "block" && resistant ? b.resistMult : 1;
   return Math.max(1, Math.round(b.dmg * m));
 }
 
