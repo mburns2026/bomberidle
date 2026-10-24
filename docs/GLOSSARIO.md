@@ -28,8 +28,7 @@ Todos os nomes do Bomber Idle são próprios. Esta tabela é a referência para 
 | MVP | Inimigo-chefe, só na instância 33 de cada mapa: 5x o HP de um inimigo comum e recompensa maior |
 
 ## Raridades
-Operadores (8): Comum (Lyra), Incomum (Kai), Raro (Titan), Épico (Vex), Mítico (Kira), Lendário (Jax), Super lendário (Orion), Ancestral (Aeon, o topo).
-Baús (6): Comum, Raro, Épico, Mítico, Lendário, Super lendário. Baús **não** sorteiam Incomum nem Ancestral.
+Comum, Raro, Épico, Mítico, Lendário, Super lendário.
 
 ## Regras de identidade
 - Arte 100% original (gerada por código ou criada por nós); nunca usar assets de outros jogos.
@@ -43,7 +42,7 @@ Baús (6): Comum, Raro, Épico, Mítico, Lendário, Super lendário. Baús **nã
 | Coleção máxima | 500 operadores |
 | Trabalhando ao mesmo tempo | 15 |
 | Saldo inicial de teste | 60.000 $BOMBERSI |
-| Chances | Comum 41,9%, Incomum 13%, Raro 24%, Épico 12%, Mítico 6%, Lendário 2,5%, Super lendário 0,5%, Ancestral 0,1% (os 55% do Comum de antes foram repartidos; Raro a Super não mudaram) |
+| Chances | Comum 55%, Raro 24%, Épico 12%, Mítico 6%, Lendário 2,5%, Super lendário 0,5% |
 
 Os valores ficam em `client/src/state.ts` (seção "economia").
 
@@ -86,10 +85,10 @@ Ficam no `localStorage` (`bomber-idle:v1`): saldo, operadores (nível, XP, melho
 ## Classes e habilidades (Bombers Overhaul 2.0)
 | Termo | Significado |
 |---|---|
-| Classe de combate | Papel do operador, definido pela raridade: Lyra (suporte), Kai (caçador), Titan (tanque), Vex (hacker), Kira (velocidade), Jax (samurai), Orion (híbrido), Aeon (ápice) |
+| Classe de combate | Papel do operador, definido pela raridade: Lyra (suporte), Titan (tanque), Vex (hacker), Kira (velocidade), Jax (samurai), Orion (híbrido) |
 | Passiva / Ativa | Passiva fica sempre ligada; ativa dispara sozinha por condição, tem duração, recarga e custo |
 | Recarga | Tempo até a ativa poder disparar de novo. Não é salva: ao recarregar a página volta com 30% da recarga |
-| Bônus de equipe | Bônus pequeno (máx. 10%) dado por Orion e Aeon a aliados próximos; não soma entre fontes |
+| Bônus de equipe | Bônus pequeno (máx. 10%) dado por Orion a aliados próximos; não soma entre fontes |
 | Alvo resistente | Baú, ou bloco com HP máximo de 20 ou mais |
 
 Parâmetros e limites: `client/src/game/bomberConfig.ts`. Visão geral: [BOMBERS-2.0.md](BOMBERS-2.0.md).

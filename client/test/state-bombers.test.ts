@@ -84,7 +84,7 @@ test("formato anterior a 1.6 (heroes por chave) continua migrando com nivel, XP 
   assert.deepEqual([orion.rarity, orion.level, orion.xp], ["super", 20, 9]);
 });
 
-test("os 6 operadores originais mantem identificadores, raridade e atributos de fabrica da 1.7.1", async () => {
+test("os 6 operadores mantem identificadores, raridade e atributos de fabrica da 1.7.1", async () => {
   mem.clear(); put({ owned: ["common", "rare", "epic", "mythic", "legendary", "super"].map((r, i) => op({ r, n: i + 1 })) });
   const s = await load();
   const by = Object.fromEntries(s.store.collection.map((h) => [h.rarity, h]));
@@ -137,40 +137,4 @@ test("habilidades temporarias nao persistem: recarregar comeca sem efeitos e com
   assert.deepEqual(rt2.active, {});
   assert.equal(ab.modifiersOf(rt2, h).hitIntervalMult, 1);
   assert.equal(rt2.cd.jax_flurry, Math.round(cfg.ABILITY_DEFS.jax_flurry.cooldownMs * cfg.BALANCE.warmupFraction));
-});
-
-test("8 BOMBERS: Kai (Incomum) e Aeon (Ancestral, o topo) existem, sao carregaveis e a ordem de raridade esta certa", async () => {
-  mem.clear(); put({ owned: ["common", "uncommon", "rare", "epic", "mythic", "legendary", "super", "ancestral"].map((r, i) => op({ r, n: i + 1, lv: 5 })) });
-  const s = await load();
-  assert.deepEqual(s.RARITY_ORDER, ["common", "uncommon", "rare", "epic", "mythic", "legendary", "super", "ancestral"]);
-  assert.equal(s.store.collection.length, 8);
-  const by = Object.fromEntries(s.store.collection.map((h) => [h.rarity, h]));
-  assert.equal(by.uncommon.name, "Kai #2"); assert.equal(by.ancestral.name, "Aeon #8");
-  assert.equal(by.uncommon.portrait, "nft/kai.jpg"); assert.equal(by.ancestral.portrait, "nft/aeon.jpg");
-  assert.equal(s.RARITIES.uncommon.label, "Incomum"); assert.equal(s.RARITIES.ancestral.label, "Ancestral");
-  // Aeon no topo de tudo (menos velocidade: a Kira continua a mais veloz) e Kai entre Comum e Raro
-  const others = s.store.collection.filter((h) => h.rarity !== "ancestral");
-  for (const k of ["power", "maxStamina", "luck", "chestMult"] as const) assert.ok(others.every((h) => by.ancestral[k] >= h[k]), k);
-  assert.ok(s.RARITIES.ancestral.mult > Math.max(...others.map((h) => s.RARITIES[h.rarity].mult)));
-  assert.ok(by.ancestral.speed < by.mythic.speed && by.ancestral.speed > by.super.speed, "Kira segue como a mais veloz");
-  assert.ok(s.RARITIES.common.mult < s.RARITIES.uncommon.mult && s.RARITIES.uncommon.mult < s.RARITIES.rare.mult);
-  assert.ok(by.uncommon.power < by.rare.power && by.uncommon.maxStamina > by.common.maxStamina);
-});
-
-test("capsula: as chances somam 100, Raro..Super lendario seguem iguais a 1.7.1 e so o Comum foi dividido", async () => {
-  mem.clear(); put({ owned: [op()] });
-  const s = await load();
-  const sum = Object.values(s.CAPSULE_ODDS).reduce((a, b) => a + b, 0);
-  assert.ok(Math.abs(sum - 100) < 1e-9, `soma ${sum}`);
-  const o = s.CAPSULE_ODDS;
-  assert.deepEqual([o.rare, o.epic, o.mythic, o.legendary, o.super], [24, 12, 6, 2.5, 0.5]);
-  assert.ok(Math.abs(o.common + o.uncommon + o.ancestral - 55) < 1e-9, "os 55% do Comum de 1.7.1 foram repartidos");
-  assert.equal(o.ancestral, 0.1); assert.ok(o.ancestral < o.super, "Aeon e mais raro que o Orion");
-});
-
-test("migracao de saves antigos (pre-1.6) cria so os 6 operadores originais, nunca Kai nem Aeon de graca", async () => {
-  mem.clear();
-  mem.set(KEY, JSON.stringify({ pending: 1, chests: 0, heroes: { lyra: { xp: 0, level: 2, up: { stamina: 0, speed: 0, luck: 0 } } } }));
-  const s = await load();
-  assert.deepEqual(s.store.collection.map((h) => h.rarity), ["common", "rare", "epic", "mythic", "legendary", "super"]);
 });

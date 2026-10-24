@@ -96,8 +96,7 @@ export function scoreCandidate(cls: BomberClass, c: CellTarget, staminaRatio: nu
     + w.resistant * resistant
     + w.finish * (c.hits <= 1 ? 1 : 0)
     + w.cluster * Math.min(3, c.adjTargets)
-    + w.mvp * (c.mvp ? 1 : 0)
-    + (c.kind === "enemy" && c.dist <= w.huntRange ? w.enemyBonus : 0); // cacador (Kai): inimigo proximo vale mais que um bau
+    + w.mvp * (c.mvp ? 1 : 0);
 }
 
 // ---------- estado de decisao por operador ----------

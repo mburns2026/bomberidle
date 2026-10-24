@@ -18,7 +18,7 @@ export function createRuntime(cls: BomberClass): AbilityRuntime {
   const cd: AbilityRuntime["cd"] = {};
   // Recarregar a pagina nao zera as recargas por completo: ativas comecam com 30% (efeitos ativos nunca persistem).
   for (const d of abilitiesOf(cls)) if (d.kind === "active") cd[d.id] = Math.round(d.cooldownMs * BALANCE.warmupFraction);
-  return { cls, cd, active: {}, team: { dmg: 0, speed: 0, ms: 0 }, supportLockMs: 0, syncLockMs: 0, mods: { ...NEUTRAL_MODS } };
+  return { cls, cd, active: {}, team: { dmg: 0, speed: 0, ms: 0 }, supportLockMs: 0, mods: { ...NEUTRAL_MODS } };
 }
 export function runtimeOf(h: BomberLike): AbilityRuntime {
   let rt = registry.get(h.id);
@@ -38,7 +38,6 @@ export function tickRuntime(rt: AbilityRuntime, dtMs: number) {
     if (left > 0) rt.active[k] = left; else delete rt.active[k];
   }
   rt.supportLockMs = Math.max(0, rt.supportLockMs - dt);
-  rt.syncLockMs = Math.max(0, rt.syncLockMs - dt);
   if (rt.team.ms > 0) { rt.team.ms -= dt; if (rt.team.ms <= 0) rt.team = { dmg: 0, speed: 0, ms: 0 }; }
 }
 
@@ -57,7 +56,7 @@ export function setTeamBuff(rt: AbilityRuntime, dmg: number, speed: number) {
   };
 }
 
-const MULT: (keyof Modifiers)[] = ["dmgMult", "speedMult", "regenMult", "staminaCostMult", "chestDmgMult", "enemyDmgMult", "resistantDmgMult", "hitIntervalMult"];
+const MULT: (keyof Modifiers)[] = ["dmgMult", "speedMult", "regenMult", "staminaCostMult", "chestDmgMult", "resistantDmgMult", "hitIntervalMult"];
 const ADD: (keyof Modifiers)[] = ["luckBonus", "critChance", "blastRangeBonus"];
 const MAXK: (keyof Modifiers)[] = ["critMult", "splashRadius"];
 
@@ -110,8 +109,6 @@ export function decideAbilities(rt: AbilityRuntime, h: BomberLike, ctx: AbilityC
     let go = false;
     switch (d.id) {
       case "lyra_repair": go = ratio <= BALANCE.repair.selfBelow || ctx.alliesNeedingSupport >= 1; break;
-      case "kai_hunt": go = ctx.enemiesNear >= 1 && h.stamina >= 2; break;
-      case "aeon_rewrite": go = ratio >= 0.4 && (ctx.targetsNear >= 3 || ctx.enemiesNear >= 1 || ctx.chestsDetected >= 2); break;
       case "titan_seismic": go = ctx.adjacentTarget && h.stamina >= d.staminaCost + 2 && (ctx.targetsNear >= 3 || ctx.resistantNear); break;
       case "vex_deep_scan": go = ctx.chestsDetected >= 2 && h.stamina >= 2; break;
       case "kira_dash": go = ctx.pathLen !== null && ctx.pathLen >= 4 && h.stamina >= 2; break;
@@ -147,30 +144,6 @@ export function repairPulse(self: BomberLike, allies: RepairTarget[]): RepairRes
     if (got > 0) { a.rt.supportLockMs = R.lockMs; res.allies.push({ id: a.data.id, amount: got }); }
   }
   return res;
-}
-
-/**
- * Sincronia do Aeon: encurta as recargas ATIVAS dos aliados em `fraction` do tempo total de cada habilidade.
- * Limites: so recargas que ainda estao correndo, nunca abaixo de zero, e cada aliado so recebe uma sincronia por `lockMs`
- * (varios Aeons nao somam). Devolve os ids que foram beneficiados.
- */
-export function syncCooldowns(def: AbilityDef, allies: RepairTarget[]): string[] {
-  const s = def.cdSync;
-  if (!s) return [];
-  const out: string[] = [];
-  for (const a of allies) {
-    if (a.rt.syncLockMs > 0) continue;
-    let shaved = false;
-    for (const d of abilitiesOf(a.rt.cls)) {
-      if (d.kind !== "active") continue;
-      const left = a.rt.cd[d.id] ?? 0;
-      if (left <= 0) continue;
-      a.rt.cd[d.id] = Math.max(0, left - Math.min(left, d.cooldownMs * s.fraction));
-      shaved = true;
-    }
-    if (shaved) { a.rt.syncLockMs = s.lockMs; out.push(a.data.id); }
-  }
-  return out;
 }
 
 // ---------- auras e deteccao ----------

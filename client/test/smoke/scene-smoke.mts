@@ -9,9 +9,9 @@ registerHooks({ resolve(spec, ctx, next) { return spec === "phaser" ? { url: moc
 import assert from "node:assert/strict";
 const mem = new Map<string, string>();
 (globalThis as any).localStorage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v), removeItem: (k: string) => void mem.delete(k) };
-const rar = process.env.ONLY ? [process.env.ONLY] : ["common", "uncommon", "rare", "epic", "mythic", "legendary", "super", "ancestral"]; // ONLY=aeon... roda 15 operadores da mesma raridade
+const rar = ["common", "rare", "epic", "mythic", "legendary", "super"];
 const LVL = Number(process.env.LVL ?? 30);
-mem.set("bomber-idle:v1", JSON.stringify({ pending: 0, chests: 0, wk: true, owned: Array.from({ length: 15 }, (_, i) => ({ r: rar[i % rar.length], n: i + 1, xp: 0, lv: LVL, up: { stamina: 2, speed: 1, luck: 0 }, j: { s: 0, v: 0, l: 0 }, w: 1 })), map: { i: Number(process.env.MAP ?? 0), n: Number(process.env.INST ?? 1), a: true } }));
+mem.set("bomber-idle:v1", JSON.stringify({ pending: 0, chests: 0, wk: true, owned: Array.from({ length: 15 }, (_, i) => ({ r: rar[i % 6], n: i + 1, xp: 0, lv: LVL, up: { stamina: 2, speed: 1, luck: 0 }, j: { s: 0, v: 0, l: 0 }, w: 1 })), map: { i: Number(process.env.MAP ?? 0), n: Number(process.env.INST ?? 1), a: true } }));
 
 const P: any = (await import("phaser")).default;
 const st = await import("../../src/state.ts");
