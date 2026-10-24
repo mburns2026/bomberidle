@@ -15,6 +15,4 @@ export interface Player {
   pending: bigint;       // recompensa acumulada (unidades minimas do token)
   lastSettledAt: number; // epoch ms
   nonce: number;         // ultimo nonce usado no claim
-  /** Saque preparado e ainda nao confirmado na cadeia. Fica reservado (fora de `pending`) ate o programa registrar o nonce. */
-  reserved?: { amount: bigint; nonce: number };
 }

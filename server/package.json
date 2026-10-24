@@ -1,13 +1,12 @@
 {
   "name": "server",
-  "version": "1.7.1",
+  "version": "1.7.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "test": "node --import tsx --test test/*.test.ts"
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "@solana/spl-token": "^0.4.8",
